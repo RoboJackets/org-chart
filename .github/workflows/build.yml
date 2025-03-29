@@ -37,7 +37,7 @@ jobs:
         run: poetry run pylint .
 
       - name: Run mypy
-        run: OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build poetry run mypy --strict .
+        run: DJANGO_ALLOWED_HOSTS=127.0.0.1 OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build poetry run mypy --strict .
 
   docker:
     name: Docker
