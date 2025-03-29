@@ -16,6 +16,7 @@ Including another URLconf
 """
 
 from django.contrib import admin
+from django.http import HttpResponse
 from django.urls import path, include
 from mozilla_django_oidc.urls import OIDCAuthenticateClass  # type: ignore
 
@@ -23,4 +24,5 @@ urlpatterns = [
     path("admin/login/", OIDCAuthenticateClass.as_view()),
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
+    path("ping", lambda r: HttpResponse())
 ]
