@@ -139,7 +139,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
     )
     inlines = (InlinePositionAdmin,)
     add_fieldsets = (
-        (None, {"fields": ("username","usable_password")}),
+        (None, {"fields": ("username", "usable_password")}),
         ("Personal info", {"fields": ("first_name", "last_name", "email")}),
         (
             "Organization hierarchy",
