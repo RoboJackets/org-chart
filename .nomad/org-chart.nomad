@@ -164,6 +164,13 @@ job "org-chart" {
         env = true
       }
 
+      template {
+        data = "DJANGO_ALLOWED_HOSTS=\"${var.hostname}\""
+
+        destination = "/secrets/.django_allowed_hosts"
+        env = true
+      }
+
       service {
         name = "${NOMAD_JOB_NAME}"
 
