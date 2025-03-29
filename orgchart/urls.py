@@ -24,5 +24,5 @@ urlpatterns = [
     path("admin/login/", OIDCAuthenticateClass.as_view()),
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
-    path("ping", lambda r: HttpResponse())
+    path("ping", lambda r: HttpResponse()),
 ]
