@@ -166,6 +166,8 @@ job "org-chart" {
 
         port = "http"
 
+        address = "127.0.0.1"
+
         tags = [
           "uwsgi",
           "http",
