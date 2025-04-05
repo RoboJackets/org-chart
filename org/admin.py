@@ -175,7 +175,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
             r = request.POST.copy()
             for p in Person.objects.all():
                 r.update({ACTION_CHECKBOX_NAME: str(p.id)})
-            request._set_post(r)  # type: ignore  # pylint: disable=protected-access
+            request.POST = r
         return super().changelist_view(request, extra_context)
 
     actions = [
