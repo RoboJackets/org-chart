@@ -227,6 +227,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
         updated_active_flag_count = 0
         updated_keycloak_user_id_count = 0
+        updated_ramp_user_id_count = 0
         added_new_person_count = 0
 
         for keycloak_user in keycloak_user_list_response.json():
@@ -264,6 +265,9 @@ class PersonAdmin(UserAdmin):  # type: ignore
             if this_person.is_active != keycloak_user["enabled"]:
                 updated_active_flag_count += 1
 
+            if this_person.ramp_user_id is None and this_ramp_user_id is not None:
+                updated_ramp_user_id_count += 1
+
             this_person.email = keycloak_user["email"]
             this_person.first_name = keycloak_user["firstName"]
             this_person.last_name = keycloak_user["lastName"]
@@ -295,6 +299,18 @@ class PersonAdmin(UserAdmin):  # type: ignore
                 messages.SUCCESS,
             )
 
+        if updated_ramp_user_id_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated Ramp user ID for %d person.",
+                    "Updated Ramp user IDs for %d people.",
+                    updated_ramp_user_id_count,
+                )
+                % updated_ramp_user_id_count,
+                messages.SUCCESS,
+            )
+
         if added_new_person_count > 0:
             self.message_user(
                 request,
@@ -309,6 +325,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
         if (
             updated_active_flag_count == 0
+            and updated_ramp_user_id_count == 0
             and updated_keycloak_user_id_count == 0
             and added_new_person_count == 0
         ):
