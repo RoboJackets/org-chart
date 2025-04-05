@@ -1,8 +1,14 @@
-from typing import Literal, List
+from gettext import ngettext
+from typing import Literal, List, Dict, Any
 
-from django.contrib import admin
+from django.conf import settings
+from django.contrib import admin, messages
+from django.contrib.admin.helpers import ACTION_CHECKBOX_NAME
 from django.contrib.admin.options import InlineModelAdmin
 from django.contrib.auth.admin import UserAdmin
+from django.db.models import QuerySet
+from django.http import HttpRequest, HttpResponse
+from requests import post, get
 
 from .models import Person, Position
 
@@ -161,6 +167,156 @@ class PersonAdmin(UserAdmin):  # type: ignore
         return (  # pylint: disable=simplify-boolean-expression
             obj and super().get_inline_instances(request, obj) or []
         )
+
+    def changelist_view(
+        self, request: HttpRequest, extra_context: Dict[str, Any] | None = None
+    ) -> HttpResponse:
+        if "action" in request.POST and request.POST["action"] == "fetch_users_from_keycloak":
+            r = request.POST.copy()
+            for p in Person.objects.all():
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
+            request._set_post(r)  # type: ignore  # pylint: disable=protected-access
+        return super().changelist_view(request, extra_context)
+
+    actions = [
+        "fetch_users_from_keycloak",
+    ]
+
+    @admin.action(permissions=["add"], description="Fetch people from Keycloak")
+    def fetch_users_from_keycloak(
+        self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
+    ) -> None:
+        """
+        Fetch user information from Keycloak and update or create local users as needed
+        """
+        keycloak_access_token_response = post(
+            url=settings.KEYCLOAK_SERVER + "/realms/master/protocol/openid-connect/token",
+            data={
+                "client_id": settings.KEYCLOAK_ADMIN_CLIENT_ID,
+                "client_secret": settings.KEYCLOAK_ADMIN_CLIENT_SECRET,
+                "grant_type": "client_credentials",
+            },
+            timeout=(
+                5,
+                5,
+            ),
+        )
+
+        if keycloak_access_token_response.status_code != 200:
+            self.message_user(
+                request,
+                "Error retrieving Keycloak access token: " + keycloak_access_token_response.text,
+                messages.ERROR,
+            )
+            return
+
+        keycloak_user_list_response = get(
+            url=settings.KEYCLOAK_SERVER + "/admin/realms/robojackets/users",
+            headers={
+                "Authorization": "Bearer "
+                + keycloak_access_token_response.json().get("access_token"),
+            },
+            params={
+                "max": 1000,
+            },
+            timeout=(
+                5,
+                5,
+            ),
+        )
+
+        updated_active_flag_count = 0
+        updated_keycloak_user_id_count = 0
+        added_new_person_count = 0
+
+        for keycloak_user in keycloak_user_list_response.json():
+            this_ramp_user_id = None
+
+            if (
+                "attributes" in keycloak_user
+                and "rampUserId" in keycloak_user["attributes"]
+                and len(keycloak_user["attributes"]["rampUserId"]) == 1
+            ):
+                this_ramp_user_id = keycloak_user["attributes"]["rampUserId"][0]
+
+            try:
+                this_person = Person.objects.get(keycloak_user_id__iexact=keycloak_user["id"])
+            except Person.DoesNotExist:  # pylint: disable=no-member
+                try:
+                    this_person = Person.objects.get(username__iexact=keycloak_user["username"])
+                    this_person.keycloak_user_id = keycloak_user["id"]
+                    updated_keycloak_user_id_count += 1
+                except Person.DoesNotExist:  # pylint: disable=no-member
+                    this_person = Person.objects.create_user(
+                        username=keycloak_user["username"],
+                        email=keycloak_user["email"],
+                        password=None,
+                        first_name=keycloak_user["firstName"],
+                        last_name=keycloak_user["lastName"],
+                        keycloak_user_id=keycloak_user["id"],
+                        ramp_user_id=this_ramp_user_id,
+                        is_active=keycloak_user["enabled"],
+                        is_staff=settings.DEBUG,
+                        is_superuser=settings.DEBUG,
+                    )
+                    added_new_person_count += 1
+
+            if this_person.is_active != keycloak_user["enabled"]:
+                updated_active_flag_count += 1
+
+            this_person.email = keycloak_user["email"]
+            this_person.first_name = keycloak_user["firstName"]
+            this_person.last_name = keycloak_user["lastName"]
+            this_person.ramp_user_id = this_ramp_user_id
+            this_person.is_active = keycloak_user["enabled"]
+            this_person.save()
+
+        if updated_active_flag_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated active status for %d person.",
+                    "Updated active status for %d people.",
+                    updated_active_flag_count,
+                )
+                % updated_active_flag_count,
+                messages.SUCCESS,
+            )
+
+        if updated_keycloak_user_id_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated Keycloak user ID for %d person.",
+                    "Updated Keycloak user IDs for %d people.",
+                    updated_keycloak_user_id_count,
+                )
+                % updated_keycloak_user_id_count,
+                messages.SUCCESS,
+            )
+
+        if added_new_person_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Added %d person.",
+                    "Added %d people.",
+                    added_new_person_count,
+                )
+                % added_new_person_count,
+                messages.SUCCESS,
+            )
+
+        if (
+            updated_active_flag_count == 0
+            and updated_keycloak_user_id_count == 0
+            and added_new_person_count == 0
+        ):
+            self.message_user(
+                request,
+                "No changes made.",
+                messages.SUCCESS,
+            )
 
 
 class PositionAdmin(admin.ModelAdmin):  # type: ignore
