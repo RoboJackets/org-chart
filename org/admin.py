@@ -225,6 +225,14 @@ class PersonAdmin(UserAdmin):  # type: ignore
             ),
         )
 
+        if keycloak_user_list_response.status_code != 200:
+            self.message_user(
+                request,
+                "Error retrieving people from Keycloak: " + keycloak_user_list_response.text,
+                messages.ERROR,
+            )
+            return
+
         updated_active_flag_count = 0
         updated_keycloak_user_id_count = 0
         updated_ramp_user_id_count = 0
