@@ -183,7 +183,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
     ]
 
     @admin.action(permissions=["add"], description="Fetch people from Keycloak")
-    def fetch_users_from_keycloak(
+    def fetch_users_from_keycloak(  # pylint: disable=too-many-branches
         self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
     ) -> None:
         """
