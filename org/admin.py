@@ -175,7 +175,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
             r = request.POST.copy()
             for p in Person.objects.all():
                 r.update({ACTION_CHECKBOX_NAME: str(p.id)})
-            request.POST = r
+            request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
     actions = [
