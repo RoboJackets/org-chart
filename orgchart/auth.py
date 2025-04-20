@@ -19,7 +19,7 @@ class AuthenticationBackend(OIDCAuthenticationBackend):  # type: ignore
         try:
             return [Person.objects.get(username=username)]
 
-        except Person.DoesNotExist:  # pylint: disable=no-member
+        except Person.DoesNotExist:
             return self.UserModel.objects.none()  # type: ignore
 
     def create_user(self, claims: Dict[str, str]) -> Person:

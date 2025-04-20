@@ -152,3 +152,11 @@ OIDC_TIMEOUT = 5
 KEYCLOAK_ADMIN_CLIENT_ID = os.environ["KEYCLOAK_ADMIN_CLIENT_ID"]
 KEYCLOAK_ADMIN_CLIENT_SECRET = os.environ["KEYCLOAK_ADMIN_CLIENT_SECRET"]
 KEYCLOAK_SERVER = os.environ["KEYCLOAK_SERVER"]
+APIARY_SERVER = "https://my.robojackets.org"
+APIARY_TOKEN = os.environ["APIARY_TOKEN"]
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+        "LOCATION": BASE_DIR / ".djangocache",
+    }
+}

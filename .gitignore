@@ -175,3 +175,6 @@ cython_debug/
 
 # JetBrains stuff
 .idea/
+
+# Django cache
+.djangocache/
