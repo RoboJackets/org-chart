@@ -421,8 +421,8 @@ class PersonAdmin(UserAdmin):  # type: ignore
                 if "user" not in user_response.json():
                     raise KeyError("Error retrieving user from Apiary: " + user_response.text)
 
-                cache.set("apiary_user_" + person.username, user_response.json()["user"])
                 apiary_user = user_response.json()["user"]
+                cache.set("apiary_user_" + person.username, apiary_user, timeout=None)
 
             if person.is_active != apiary_user["is_access_active"]:
                 person.is_active = apiary_user["is_access_active"]

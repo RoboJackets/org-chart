@@ -1,6 +1,7 @@
 from typing import Tuple
 
 from django.conf import settings
+from django.core.cache import cache
 from requests import get
 
 from org.models import Person, Position
@@ -16,23 +17,28 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
 
         return this_user, 0
     except Person.DoesNotExist as exc:
-        user_response = get(
-            url=settings.APIARY_SERVER + "/api/v1/users/" + str(apiary_user_id),
-            headers={
-                "Authorization": "Bearer " + settings.APIARY_TOKEN,
-                "Accept": "application/json",
-            },
-            timeout=(5, 5),
-        )
-
         users_created = 0
 
-        if user_response.status_code != 200:
-            raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
-        if "user" not in user_response.json():
-            raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
+        apiary_user = cache.get("apiary_user_" + str(apiary_user_id))
 
-        apiary_user = user_response.json()["user"]
+        if apiary_user is None:
+
+            user_response = get(
+                url=settings.APIARY_SERVER + "/api/v1/users/" + str(apiary_user_id),
+                headers={
+                    "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                    "Accept": "application/json",
+                },
+                timeout=(5, 5),
+            )
+
+            if user_response.status_code != 200:
+                raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
+            if "user" not in user_response.json():
+                raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
+
+            apiary_user = user_response.json()["user"]
+            cache.set("apiary_user_" + str(apiary_user_id), apiary_user, timeout=None)
 
         this_user_reports_to_position = None
         this_user_primary_team = None
