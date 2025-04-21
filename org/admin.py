@@ -656,7 +656,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                     "id"
                 ]
 
-            if current_project_manager_id is not new_project_manager_id:
+            if current_project_manager_id != new_project_manager_id:
                 update_team_response = patch(
                     url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
                     headers={
