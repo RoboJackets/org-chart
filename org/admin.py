@@ -594,36 +594,19 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
         apiary_team_id = obj.manages_apiary_team
 
         if apiary_team_id is not None:
-            apiary_user_id = None
-
-            if obj.person is not None:
-                apiary_user_id = obj.person.apiary_user_id
-
-            update_team_response = patch(
+            get_team_response = get(
                 url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
                 headers={
                     "Authorization": "Bearer " + settings.APIARY_TOKEN,
                     "Accept": "application/json",
                 },
                 timeout=(5, 5),
-                json={
-                    "project_manager_id": apiary_user_id,
+                params={
+                    "include": "projectManager",
                 },
             )
 
-            if update_team_response.status_code == 201:
-                self.message_user(
-                    request,
-                    mark_safe(
-                        'Updated manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
-                        + str(update_team_response.json()["team"]["id"])
-                        + '">'
-                        + update_team_response.json()["team"]["name"]
-                        + "</a> in Apiary."
-                    ),
-                    messages.SUCCESS,
-                )
-            else:
+            if get_team_response.status_code != 200:
                 self.message_user(
                     request,
                     mark_safe(
@@ -632,10 +615,83 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                         + '">'
                         + get_teams()[apiary_team_id]
                         + "</a> in Apiary: "
-                        + update_team_response.text
+                        + get_team_response.text
                     ),
                     messages.WARNING,
                 )
+                return
+
+            if "team" not in get_team_response.json() or get_team_response.json()["team"] is None:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        'Failed to update manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                        + str(apiary_team_id)
+                        + '">'
+                        + get_teams()[apiary_team_id]
+                        + "</a> in Apiary: "
+                        + get_team_response.text
+                    ),
+                    messages.WARNING,
+                )
+                return
+
+            current_project_manager_id = None
+
+            if (
+                "project_manager" in get_team_response.json()["team"]
+                and get_team_response.json()["team"]["project_manager"] is not None
+                and "id" in get_team_response.json()["team"]["project_manager"]
+                and get_team_response.json()["team"]["project_manager"]["id"] is not None
+            ):
+                current_project_manager_id = get_team_response.json()["team"]["project_manager"][
+                    "id"
+                ]
+
+            new_project_manager_id = None
+
+            if obj.person is not None:
+                new_project_manager_id = obj.person.apiary_user_id
+
+            if current_project_manager_id != new_project_manager_id:
+
+                update_team_response = patch(
+                    url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
+                    headers={
+                        "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                        "Accept": "application/json",
+                    },
+                    timeout=(5, 5),
+                    json={
+                        "project_manager_id": new_project_manager_id,
+                    },
+                )
+
+                if update_team_response.status_code == 201:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Updated manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                            + str(update_team_response.json()["team"]["id"])
+                            + '">'
+                            + update_team_response.json()["team"]["name"]
+                            + "</a> in Apiary."
+                        ),
+                        messages.SUCCESS,
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Failed to update manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                            + str(apiary_team_id)
+                            + '">'
+                            + get_teams()[apiary_team_id]
+                            + "</a> in Apiary: "
+                            + update_team_response.text
+                        ),
+                        messages.WARNING,
+                    )
 
     actions = [
         "fetch_positions_from_apiary",
