@@ -651,6 +651,9 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
             new_project_manager_id = None
 
             if obj.person is not None:
+                if obj.person.apiary_user_id is None:
+                    return
+
                 new_project_manager_id = obj.person.apiary_user_id
 
             if current_project_manager_id is not new_project_manager_id:
