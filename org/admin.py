@@ -591,6 +591,14 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
     def save_model(self, request: HttpRequest, obj: Position, form: Any, change: Any) -> None:
         super().save_model(request, obj, form, change)
 
+        new_project_manager_id = None
+
+        if obj.person is not None:
+            if obj.person.apiary_user_id is None:
+                return
+
+            new_project_manager_id = obj.person.apiary_user_id
+
         apiary_team_id = obj.manages_apiary_team
 
         if apiary_team_id is not None:
@@ -647,14 +655,6 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                 current_project_manager_id = get_team_response.json()["team"]["project_manager"][
                     "id"
                 ]
-
-            new_project_manager_id = None
-
-            if obj.person is not None:
-                if obj.person.apiary_user_id is None:
-                    return
-
-                new_project_manager_id = obj.person.apiary_user_id
 
             if current_project_manager_id is not new_project_manager_id:
                 update_team_response = patch(
