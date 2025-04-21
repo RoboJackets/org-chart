@@ -51,21 +51,6 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
         ):
             this_user_primary_team = apiary_user["primary_team"]["id"]
 
-        if (
-            "manager" in apiary_user
-            and apiary_user["manager"] is not None
-            and "id" in apiary_user["manager"]
-            and apiary_user["manager"]["id"] is not None
-        ):
-            (this_users_manager, users_created) = find_or_create_local_user_for_apiary_user_id(
-                apiary_user["manager"]["id"]
-            )
-
-            try:
-                this_user_reports_to_position = Position.objects.get(person=this_users_manager)
-            except Position.DoesNotExist:
-                pass
-
         this_user = Person.objects.create_user(
             username=apiary_user["uid"],
             email=apiary_user["gt_email"],
@@ -81,6 +66,25 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
             is_staff=settings.DEBUG,
             is_superuser=settings.DEBUG,
         )
+
+        if (
+            "manager" in apiary_user
+            and apiary_user["manager"] is not None
+            and "id" in apiary_user["manager"]
+            and apiary_user["manager"]["id"] is not None
+        ):
+            (this_users_manager, users_created) = find_or_create_local_user_for_apiary_user_id(
+                apiary_user["manager"]["id"]
+            )
+
+            try:
+                this_user_reports_to_position = Position.objects.get(person=this_users_manager)
+
+                this_user.reports_to_position = this_user_reports_to_position
+                this_user.save()
+            except Position.DoesNotExist:
+                pass
+
         users_created += 1
 
         return this_user, users_created
