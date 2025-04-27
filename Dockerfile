@@ -28,7 +28,7 @@ COPY --chown=uwsgi:uwsgi /pyproject.toml /poetry.lock /manage.py /app/
 RUN set -eux && \
     mkdir --parents /app/static/ && \
     POETRY_VIRTUALENVS_CREATE=false poetry install --only main --no-root --no-interaction --no-ansi && \
-    DJANGO_SETTINGS_MODULE=orgchart.settings.development DJANGO_ALLOWED_HOSTS=127.0.0.1 OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build KEYCLOAK_ADMIN_CLIENT_ID=build KEYCLOAK_ADMIN_CLIENT_SECRET=build KEYCLOAK_SERVER=build APIARY_TOKEN=build ./manage.py collectstatic --no-input && \
+    DJANGO_SETTINGS_MODULE=orgchart.settings.development DJANGO_ALLOWED_HOSTS=127.0.0.1 OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build KEYCLOAK_ADMIN_CLIENT_ID=build KEYCLOAK_ADMIN_CLIENT_SECRET=build KEYCLOAK_SERVER=build APIARY_TOKEN=build RAMP_CLIENT_ID=build RAMP_CLIENT_SECRET=build ./manage.py collectstatic --no-input && \
     cd /app/static/ && \
     find . -type f -size +0 | while read file; do \
         filename=$(basename -- "$file"); \
