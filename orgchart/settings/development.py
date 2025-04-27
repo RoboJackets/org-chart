@@ -156,7 +156,6 @@ APIARY_SERVER = "https://my.robojackets.org"
 APIARY_TOKEN = os.environ["APIARY_TOKEN"]
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": BASE_DIR / ".djangocache",
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
