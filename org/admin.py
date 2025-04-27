@@ -1,3 +1,4 @@
+from collections import defaultdict
 from gettext import ngettext
 from typing import Literal, List, Dict, Any
 
@@ -8,8 +9,13 @@ from django.contrib.admin.options import InlineModelAdmin
 from django.contrib.auth.admin import UserAdmin
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse
-from requests import post, get
+from django.urls import reverse
+from django.utils.safestring import mark_safe
+from django.core.cache import cache
+from requests import post, get, patch
 
+from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
+from .apiary import get_teams
 from .models import Person, Position
 
 
@@ -171,7 +177,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
     def changelist_view(
         self, request: HttpRequest, extra_context: Dict[str, Any] | None = None
     ) -> HttpResponse:
-        if "action" in request.POST and request.POST["action"] == "fetch_users_from_keycloak":
+        if "action" in request.POST and request.POST["action"] in (
+            "fetch_users_from_keycloak",
+            "fetch_hierarchy_from_apiary",
+        ):
             r = request.POST.copy()
             for p in Person.objects.all():
                 r.update({ACTION_CHECKBOX_NAME: str(p.id)})
@@ -180,6 +189,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
     actions = [
         "fetch_users_from_keycloak",
+        "fetch_hierarchy_from_apiary",
     ]
 
     @admin.action(permissions=["add"], description="Fetch people from Keycloak")
@@ -250,12 +260,12 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
             try:
                 this_person = Person.objects.get(keycloak_user_id__iexact=keycloak_user["id"])
-            except Person.DoesNotExist:  # pylint: disable=no-member
+            except Person.DoesNotExist:
                 try:
                     this_person = Person.objects.get(username__iexact=keycloak_user["username"])
                     this_person.keycloak_user_id = keycloak_user["id"]
                     updated_keycloak_user_id_count += 1
-                except Person.DoesNotExist:  # pylint: disable=no-member
+                except Person.DoesNotExist:
                     this_person = Person.objects.create_user(
                         username=keycloak_user["username"],
                         email=keycloak_user["email"],
@@ -343,6 +353,190 @@ class PersonAdmin(UserAdmin):  # type: ignore
                 messages.SUCCESS,
             )
 
+    @admin.action(permissions=["change"], description="Fetch hierarchy from Apiary")
+    def fetch_hierarchy_from_apiary(  # pylint: disable=too-many-branches,too-many-statements
+        self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
+    ) -> None:
+        """
+        Fetch user information from Apiary and update primary team and reporting position as needed
+        """
+        updated_active_flag_count = 0
+        updated_apiary_user_id_count = 0
+        updated_primary_team_count = 0
+        updated_reports_to_position_count = 0
+
+        for person in Person.objects.all():
+            apiary_user = cache.get("apiary_user_" + person.username)
+
+            if apiary_user is None:
+                user_response = get(
+                    url=settings.APIARY_SERVER + "/api/v1/users/" + person.username,
+                    headers={
+                        "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                        "Accept": "application/json",
+                    },
+                    timeout=(5, 5),
+                )
+
+                if user_response.status_code == 404:
+                    if person.is_active:
+                        person.is_active = False
+                        person.save()
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="'
+                                + reverse("admin:org_person_change", args=(person.id,))
+                                + '">'
+                                + str(person)
+                                + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
+                            ),
+                            messages.WARNING,
+                        )
+
+                        updated_active_flag_count += 1
+                        continue
+
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            '<a href="'
+                            + reverse("admin:org_person_change", args=(person.id,))
+                            + '">'
+                            + str(person)
+                            + "</a> was not found in Apiary."
+                        ),
+                        messages.WARNING,
+                    )
+                    continue
+
+                if user_response.status_code != 200:
+                    raise Exception("Error retrieving user from Apiary: " + user_response.text)
+
+                if "user" not in user_response.json():
+                    raise KeyError("Error retrieving user from Apiary: " + user_response.text)
+
+                apiary_user = user_response.json()["user"]
+                cache.set("apiary_user_" + person.username, apiary_user, timeout=None)
+
+            if person.is_active != apiary_user["is_access_active"]:
+                person.is_active = apiary_user["is_access_active"]
+                updated_active_flag_count += 1
+
+            if not person.manual_hierarchy:
+                if (
+                    "primary_team" in apiary_user
+                    and apiary_user["primary_team"] is not None
+                    and "id" in apiary_user["primary_team"]
+                    and apiary_user["primary_team"]["id"] is not None
+                ):
+                    apiary_primary_team_id = apiary_user["primary_team"]["id"]
+
+                    if person.member_of_apiary_team != apiary_primary_team_id:
+                        person.member_of_apiary_team = apiary_primary_team_id
+                        updated_primary_team_count += 1
+
+                if (
+                    "manager" in apiary_user
+                    and apiary_user["manager"] is not None
+                    and "id" in apiary_user["manager"]
+                    and apiary_user["manager"]["id"] is not None
+                ):
+                    try:
+                        person_reports_to_position = Position.objects.get(
+                            person=Person.objects.get(
+                                apiary_user_id__exact=apiary_user["manager"]["id"]
+                            )
+                        )
+
+                        if person.reports_to_position != person_reports_to_position:
+                            person.reports_to_position = person_reports_to_position
+                            updated_reports_to_position_count += 1
+
+                    except Position.DoesNotExist:
+                        pass
+                    except Person.DoesNotExist:
+                        pass
+
+            if person.apiary_user_id is None:
+                person.apiary_user_id = apiary_user["id"]
+                updated_apiary_user_id_count += 1
+            elif person.apiary_user_id != apiary_user["id"]:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        '<a href="'
+                        + reverse("admin:org_person_change", args=(person.id,))
+                        + '">'
+                        + str(person)
+                        + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
+                    ),
+                    messages.WARNING,
+                )
+
+            person.save()
+
+        if updated_active_flag_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated active status for %d person.",
+                    "Updated active status for %d people.",
+                    updated_active_flag_count,
+                )
+                % updated_active_flag_count,
+                messages.SUCCESS,
+            )
+
+        if updated_apiary_user_id_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated Apiary user ID for %d person.",
+                    "Updated Apiary user ID for %d people.",
+                    updated_apiary_user_id_count,
+                )
+                % updated_apiary_user_id_count,
+                messages.SUCCESS,
+            )
+
+        if updated_primary_team_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated primary team for %d person.",
+                    "Updated primary team for %d people.",
+                    updated_primary_team_count,
+                )
+                % updated_primary_team_count,
+                messages.SUCCESS,
+            )
+
+        if updated_reports_to_position_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated reporting position for %d person.",
+                    "Updated reporting position for %d people.",
+                    updated_reports_to_position_count,
+                )
+                % updated_reports_to_position_count,
+                messages.SUCCESS,
+            )
+
+        if (
+            updated_active_flag_count == 0
+            and updated_apiary_user_id_count == 0
+            and updated_primary_team_count == 0
+            and updated_reports_to_position_count == 0
+        ):
+            self.message_user(
+                request,
+                "No changes made.",
+                messages.SUCCESS,
+            )
+
 
 class PositionAdmin(admin.ModelAdmin):  # type: ignore
     """
@@ -370,12 +564,453 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
         "person__last_name",
         "person__email",
     )
+    autocomplete_fields = ("person",)
     inlines = (InlinePersonAdmin, ReportsToPositionAdmin)
 
     def get_inline_instances(self, request, obj=None) -> List[InlineModelAdmin]:  # type: ignore
         return (  # pylint: disable=simplify-boolean-expression
             obj and super().get_inline_instances(request, obj) or []
         )
+
+    def changelist_view(
+        self, request: HttpRequest, extra_context: Dict[str, Any] | None = None
+    ) -> HttpResponse:
+        if "action" in request.POST and request.POST["action"] in ("fetch_positions_from_apiary",):
+            r = request.POST.copy()
+            for p in Person.objects.all():
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
+            request.POST = r  # type: ignore
+        return super().changelist_view(request, extra_context)
+
+    def save_model(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        self, request: HttpRequest, obj: Position, form: Any, change: Any
+    ) -> None:
+        super().save_model(request, obj, form, change)
+
+        new_project_manager_id = None
+
+        if obj.person is not None:
+            if obj.person.apiary_user_id is None:
+                return
+
+            new_project_manager_id = obj.person.apiary_user_id
+
+        apiary_team_id = obj.manages_apiary_team
+
+        if apiary_team_id is not None:  # pylint: disable=too-many-nested-blocks
+            get_team_response = get(
+                url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
+                headers={
+                    "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                    "Accept": "application/json",
+                },
+                timeout=(5, 5),
+                params={
+                    "include": "projectManager",
+                },
+            )
+
+            if get_team_response.status_code != 200:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        'Failed to update manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                        + str(apiary_team_id)
+                        + '">'
+                        + get_teams()[apiary_team_id]
+                        + "</a> in Apiary: "
+                        + get_team_response.text
+                    ),
+                    messages.WARNING,
+                )
+                return
+
+            if "team" not in get_team_response.json() or get_team_response.json()["team"] is None:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        'Failed to update manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                        + str(apiary_team_id)
+                        + '">'
+                        + get_teams()[apiary_team_id]
+                        + "</a> in Apiary: "
+                        + get_team_response.text
+                    ),
+                    messages.WARNING,
+                )
+                return
+
+            current_project_manager_id = None
+
+            if (
+                "project_manager" in get_team_response.json()["team"]
+                and get_team_response.json()["team"]["project_manager"] is not None
+                and "id" in get_team_response.json()["team"]["project_manager"]
+                and get_team_response.json()["team"]["project_manager"]["id"] is not None
+            ):
+                current_project_manager_id = get_team_response.json()["team"]["project_manager"][
+                    "id"
+                ]
+
+            if current_project_manager_id != new_project_manager_id:
+                cache.clear()
+                update_team_response = patch(
+                    url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
+                    headers={
+                        "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                        "Accept": "application/json",
+                    },
+                    timeout=(5, 5),
+                    json={
+                        "project_manager_id": new_project_manager_id,
+                    },
+                )
+
+                if update_team_response.status_code == 201:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Updated manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                            + str(update_team_response.json()["team"]["id"])
+                            + '">'
+                            + update_team_response.json()["team"]["name"]
+                            + "</a> in Apiary."
+                        ),
+                        messages.SUCCESS,
+                    )
+                else:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Failed to update manager for <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                            + str(apiary_team_id)
+                            + '">'
+                            + get_teams()[apiary_team_id]
+                            + "</a> in Apiary: "
+                            + update_team_response.text
+                        ),
+                        messages.WARNING,
+                    )
+
+                possible_prior_project_managers = Person.objects.filter(
+                    member_of_apiary_team__exact=apiary_team_id, manual_hierarchy__exact=False
+                ).exclude(reports_to_position__exact=obj)
+
+                for person in possible_prior_project_managers:
+                    user_response = get(
+                        url=settings.APIARY_SERVER + "/api/v1/users/" + person.username,
+                        headers={
+                            "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                            "Accept": "application/json",
+                        },
+                        timeout=(5, 5),
+                    )
+
+                    if user_response.status_code == 404:
+                        if person.is_active:
+                            person.is_active = False
+                            person.save()
+
+                            self.message_user(
+                                request,
+                                mark_safe(
+                                    '<a href="'
+                                    + reverse("admin:org_person_change", args=(person.id,))
+                                    + '">'
+                                    + str(person)
+                                    + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
+                                ),
+                                messages.WARNING,
+                            )
+
+                            return
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="'
+                                + reverse("admin:org_person_change", args=(person.id,))
+                                + '">'
+                                + str(person)
+                                + "</a> was not found in Apiary."
+                            ),
+                            messages.WARNING,
+                        )
+                        return
+
+                    if user_response.status_code != 200:
+                        raise Exception("Error retrieving user from Apiary: " + user_response.text)
+
+                    if "user" not in user_response.json():
+                        raise KeyError("Error retrieving user from Apiary: " + user_response.text)
+
+                    apiary_user = user_response.json()["user"]
+
+                    print(apiary_user)
+
+                    if person.is_active != apiary_user["is_access_active"]:
+                        person.is_active = apiary_user["is_access_active"]
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated active status for <a href="'
+                                + reverse("admin:org_person_change", args=(person.id,))
+                                + '">'
+                                + str(person)
+                                + "</a>."
+                            ),
+                            messages.SUCCESS,
+                        )
+
+                    if not person.manual_hierarchy:
+                        if (
+                            "primary_team" in apiary_user
+                            and apiary_user["primary_team"] is not None
+                            and "id" in apiary_user["primary_team"]
+                            and apiary_user["primary_team"]["id"] is not None
+                        ):
+                            apiary_primary_team_id = apiary_user["primary_team"]["id"]
+
+                            if person.member_of_apiary_team != apiary_primary_team_id:
+                                person.member_of_apiary_team = apiary_primary_team_id
+                                self.message_user(
+                                    request,
+                                    mark_safe(
+                                        'Updated primary team for <a href="'
+                                        + reverse("admin:org_person_change", args=(person.id,))
+                                        + '">'
+                                        + str(person)
+                                        + '</a> to <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
+                                        + str(apiary_primary_team_id)
+                                        + '">'
+                                        + get_teams()[apiary_primary_team_id]
+                                        + "</a>."
+                                    ),
+                                    messages.SUCCESS,
+                                )
+
+                        if (
+                            "manager" in apiary_user
+                            and apiary_user["manager"] is not None
+                            and "id" in apiary_user["manager"]
+                            and apiary_user["manager"]["id"] is not None
+                        ):
+                            try:
+                                person_reports_to_position = Position.objects.get(
+                                    person=Person.objects.get(
+                                        apiary_user_id__exact=apiary_user["manager"]["id"]
+                                    )
+                                )
+
+                                if person.reports_to_position != person_reports_to_position:
+                                    person.reports_to_position = person_reports_to_position
+                                    self.message_user(
+                                        request,
+                                        mark_safe(
+                                            'Updated reporting position for <a href="'
+                                            + reverse("admin:org_person_change", args=(person.id,))
+                                            + '">'
+                                            + str(person)
+                                            + '</a> to <a href="'
+                                            + reverse(
+                                                "admin:org_position_change",
+                                                args=(person_reports_to_position.id,),
+                                            )
+                                            + '">'
+                                            + str(person_reports_to_position)
+                                            + "</a>."
+                                        ),
+                                        messages.SUCCESS,
+                                    )
+
+                            except Position.DoesNotExist:
+                                pass
+                            except Person.DoesNotExist:
+                                pass
+
+                    if person.apiary_user_id is None:
+                        person.apiary_user_id = apiary_user["id"]
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated Apiary user ID for <a href="'
+                                + reverse("admin:org_person_change", args=(person.id,))
+                                + '">'
+                                + str(person)
+                                + "</a>."
+                            ),
+                            messages.SUCCESS,
+                        )
+                    elif person.apiary_user_id != apiary_user["id"]:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="'
+                                + reverse("admin:org_person_change", args=(person.id,))
+                                + '">'
+                                + str(person)
+                                + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
+                                # noqa
+                            ),
+                            messages.WARNING,
+                        )
+
+                    person.save()
+
+    actions = [
+        "fetch_positions_from_apiary",
+    ]
+
+    @admin.action(permissions=["add"], description="Fetch positions from Apiary")
+    def fetch_positions_from_apiary(  # pylint: disable=too-many-branches,too-many-locals
+        self, request: HttpRequest, queryset: QuerySet[Position]  # pylint: disable=unused-argument
+    ) -> None:
+        """
+        Fetch team information from Apiary and create positions for managers
+        """
+        added_new_person_count = 0
+        added_new_position_count = 0
+        apiary_id_reports_to_apiary_id = {}
+        count_apiary_ids_reporting_to_apiary_id: Dict[int, int] = defaultdict(int)
+
+        teams_response = get(
+            url=settings.APIARY_SERVER + "/api/v1/teams",
+            headers={
+                "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                "Accept": "application/json",
+            },
+            params={
+                "include": "projectManager",
+            },
+            timeout=(5, 5),
+        )
+
+        if teams_response.status_code != 200:
+            raise Exception("Unable to fetch positions from Apiary: " + teams_response.text)
+
+        if "teams" not in teams_response.json():
+            raise Exception("Unable to fetch positions from Apiary: " + teams_response.text)
+
+        for team in teams_response.json()["teams"]:
+            if (
+                "project_manager" in team
+                and team["project_manager"] is not None
+                and "id" in team["project_manager"]
+                and team["project_manager"]["id"] is not None
+            ):
+                this_team_project_manager, users_created_this_call = (
+                    find_or_create_local_user_for_apiary_user_id(team["project_manager"]["id"])
+                )
+                added_new_person_count += users_created_this_call
+
+                try:
+                    Position.objects.get(manages_apiary_team__exact=team["id"])
+                except Position.DoesNotExist:
+                    try:
+                        Position.objects.get(person=this_team_project_manager)
+                    except Position.DoesNotExist as exc:
+                        this_position = Position(
+                            manages_apiary_team=team["id"],
+                            member_of_apiary_team=team["id"],
+                            name="Project Manager",
+                            person=this_team_project_manager,
+                        )
+                        this_position.save()
+
+                        user_response = get(
+                            url=settings.APIARY_SERVER
+                            + "/api/v1/users/"
+                            + str(team["project_manager"]["id"]),
+                            headers={
+                                "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                                "Accept": "application/json",
+                            },
+                            timeout=(5, 5),
+                        )
+
+                        if user_response.status_code != 200:
+                            raise Exception(
+                                "Unable to fetch user from Apiary: " + user_response.text
+                            ) from exc
+
+                        if "user" not in user_response.json():
+                            raise Exception(
+                                "Unable to fetch user from Apiary: " + user_response.text
+                            ) from exc
+
+                        apiary_user = user_response.json()["user"]
+
+                        if (
+                            "manager" in apiary_user
+                            and apiary_user["manager"] is not None
+                            and "id" in apiary_user["manager"]
+                            and apiary_user["manager"]["id"] is not None
+                        ):
+                            apiary_id_reports_to_apiary_id[team["project_manager"]["id"]] = (
+                                apiary_user["manager"]["id"]
+                            )
+                            count_apiary_ids_reporting_to_apiary_id[
+                                apiary_user["manager"]["id"]
+                            ] += 1
+
+                        added_new_position_count += 1
+
+        # any teams or project managers that were previously missing have been added
+        # try to derive hierarchy for positions that were just added
+        for direct_report, manager in apiary_id_reports_to_apiary_id.items():
+            # break loops
+            if (
+                apiary_id_reports_to_apiary_id[manager] == direct_report
+                and count_apiary_ids_reporting_to_apiary_id[direct_report]
+                > count_apiary_ids_reporting_to_apiary_id[manager]
+            ):
+                continue
+
+            try:
+                direct_report_position = Position.objects.get(
+                    person=Person.objects.get(apiary_user_id__exact=direct_report)
+                )
+                manager_position = Position.objects.get(
+                    person=Person.objects.get(apiary_user_id__exact=manager)
+                )
+
+                direct_report_position.reports_to_position = manager_position
+                direct_report_position.save()
+            except Position.DoesNotExist:
+                pass
+            except Person.DoesNotExist:
+                pass
+
+        if added_new_person_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Added %d person.",
+                    "Added %d people.",
+                    added_new_person_count,
+                )
+                % added_new_person_count,
+                messages.SUCCESS,
+            )
+
+        if added_new_position_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Added %d position.",
+                    "Added %d positions.",
+                    added_new_position_count,
+                )
+                % added_new_position_count,
+                messages.SUCCESS,
+            )
+
+        if added_new_person_count == 0 and added_new_position_count == 0:
+            self.message_user(
+                request,
+                "No changes made.",
+                messages.SUCCESS,
+            )
 
 
 admin.site.register(Person, PersonAdmin)

@@ -1,5 +1,5 @@
 [BASIC]
-disable=line-too-long,too-many-lines,too-few-public-methods,missing-module-docstring
+disable=line-too-long,too-many-lines,too-few-public-methods,missing-module-docstring,broad-exception-raised,no-member,duplicate-code
 docstring-min-length=5
 
 [FORMAT]

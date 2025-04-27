@@ -37,7 +37,7 @@ jobs:
         run: poetry run pylint .
 
       - name: Run mypy
-        run: DJANGO_ALLOWED_HOSTS=127.0.0.1 OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build KEYCLOAK_ADMIN_CLIENT_ID=build KEYCLOAK_ADMIN_CLIENT_SECRET=build KEYCLOAK_SERVER=build poetry run mypy --strict .
+        run: DJANGO_ALLOWED_HOSTS=127.0.0.1 OIDC_RP_CLIENT_ID=build OIDC_RP_CLIENT_SECRET=build KEYCLOAK_ADMIN_CLIENT_ID=build KEYCLOAK_ADMIN_CLIENT_SECRET=build KEYCLOAK_SERVER=build APIARY_TOKEN=build poetry run mypy --strict .
 
   docker:
     name: Docker
