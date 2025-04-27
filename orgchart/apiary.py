@@ -40,6 +40,13 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
             apiary_user = user_response.json()["user"]
             cache.set("apiary_user_" + str(apiary_user_id), apiary_user, timeout=None)
 
+        try:
+            this_user = Person.objects.get(username__iexact=apiary_user["uid"])
+
+            return this_user, 0
+        except Person.DoesNotExist:
+            pass
+
         this_user_reports_to_position = None
         this_user_primary_team = None
 
