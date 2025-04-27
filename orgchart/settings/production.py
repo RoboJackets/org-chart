@@ -10,14 +10,14 @@ CACHES = {
         "LOCATION": os.environ.get("REDIS_URI") + "?db=0",
         "OPTIONS": {
             "PASSWORD": os.environ.get("REDIS_PASSWORD"),
-        }
+        },
     },
     "session": {
         "BACKEND": "django_redis.cache.RedisCache",
         "LOCATION": os.environ.get("REDIS_URI") + "?db=1",
         "OPTIONS": {
             "PASSWORD": os.environ.get("REDIS_PASSWORD"),
-        }
+        },
     },
 }
 DATABASES = {
