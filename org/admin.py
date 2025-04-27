@@ -370,7 +370,11 @@ class PersonAdmin(UserAdmin):  # type: ignore
                             ),
                             messages.WARNING,
                         )
-                    else:
+                    elif ramp_user[
+                        "manager_id"
+                    ] is None or person.reports_to_position.person.ramp_user_id != uuid.UUID(
+                        ramp_user["manager_id"]
+                    ):
                         update_ramp_manager(
                             ramp_user["id"],
                             str(person.reports_to_position.person.ramp_user_id),

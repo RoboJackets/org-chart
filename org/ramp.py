@@ -1,3 +1,4 @@
+import logging
 from typing import List, Dict, Union
 
 from django.conf import settings
@@ -69,6 +70,7 @@ def update_ramp_manager(user_id: str, manager_id: Union[str, None], token: str) 
     """
     Update a user's manager in Ramp.
     """
+    logging.debug("Updating Ramp manager for user %s to %s", user_id, manager_id)
     ramp_response = patch(
         url="https://api.ramp.com/developer/v1/users/" + user_id,
         json={
