@@ -1,4 +1,6 @@
-from .development import *
+from .development import *  # pylint: disable=wildcard-import,unused-wildcard-import
+
+# mypy: ignore-errors
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 DEBUG = False
