@@ -389,9 +389,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                                 '<a href="'
                                 + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
-                                + person.first_name
-                                + " "
-                                + person.last_name
+                                + str(person)
                                 + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
                             ),
                             messages.WARNING,
@@ -406,9 +404,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                             '<a href="'
                             + reverse("admin:org_person_change", args=(person.id,))
                             + '">'
-                            + person.first_name
-                            + " "
-                            + person.last_name
+                            + str(person)
                             + "</a> was not found in Apiary."
                         ),
                         messages.WARNING,
@@ -473,9 +469,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         '<a href="'
                         + reverse("admin:org_person_change", args=(person.id,))
                         + '">'
-                        + person.first_name
-                        + " "
-                        + person.last_name
+                        + str(person)
                         + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
                     ),
                     messages.WARNING,
