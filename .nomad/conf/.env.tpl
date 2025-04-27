@@ -3,3 +3,5 @@ DJANGO_SETTINGS_MODULE=orgchart.settings.development
 {{- $key | trimSpace -}}={{- $value | toJSON }}
 {{ end -}}
 SENTRY_ENVIRONMENT={{ slice (env "NOMAD_JOB_NAME") 10 }}
+REDIS_URI=redis://127.0.0.1:{{ env "NOMAD_PORT_resp" }}
+

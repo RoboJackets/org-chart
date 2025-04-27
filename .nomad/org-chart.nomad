@@ -76,6 +76,8 @@ job "org-chart" {
     task "prestart" {
       driver = "docker"
 
+      consul {}
+
       lifecycle {
         hook = "prestart"
       }
@@ -109,6 +111,27 @@ job "org-chart" {
         cpu = 100
         memory = 128
         memory_max = 2048
+      }
+
+      template {
+        data = trimspace(file("conf/.env.tpl"))
+
+        destination = "/secrets/.env"
+        env = true
+      }
+
+      template {
+        data = "SENTRY_RELEASE=\"${split("@", var.image)[1]}\""
+
+        destination = "/secrets/.sentry_release"
+        env = true
+      }
+
+      template {
+        data = "DJANGO_ALLOWED_HOSTS=\"${var.hostname}\""
+
+        destination = "/secrets/.django_allowed_hosts"
+        env = true
       }
     }
 
@@ -251,9 +274,6 @@ job "org-chart" {
         data = <<EOH
 bind 127.0.0.1
 port {{ env "NOMAD_PORT_resp" }}
-unixsocket /alloc/tmp/redis.sock
-unixsocketperm 777
-requirepass {{ env "NOMAD_ALLOC_ID" }}
 maxmemory {{ env "NOMAD_MEMORY_MAX_LIMIT" }}mb
 maxmemory-policy allkeys-lru
 EOH

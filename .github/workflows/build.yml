@@ -81,17 +81,17 @@ jobs:
       image-digest: ${{ needs.docker.outputs.image-digest }}
       environment: test
 
-  # deploy-production:
-  #   name: Deploy
-  #   needs: [lint, docker, deploy-test]
-  #   uses: ./.github/workflows/deploy.yml
-  #   if: ${{ github.ref == 'refs/heads/main' }}
-  #   concurrency:
-  #     group: deploy-production
-  #     cancel-in-progress: true
-  #   permissions:
-  #     id-token: write
-  #     contents: read
-  #   with:
-  #     image-digest: ${{ needs.docker.outputs.image-digest }}
-  #     environment: production
+  deploy-production:
+   name: Deploy
+   needs: [lint, docker, deploy-test]
+   uses: ./.github/workflows/deploy.yml
+   if: ${{ github.ref == 'refs/heads/main' }}
+   concurrency:
+     group: deploy-production
+     cancel-in-progress: true
+   permissions:
+     id-token: write
+     contents: read
+   with:
+     image-digest: ${{ needs.docker.outputs.image-digest }}
+     environment: production
