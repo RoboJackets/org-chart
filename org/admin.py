@@ -150,6 +150,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         "is_active",
         "member_of_apiary_team",
         "reports_to_position",
+        "manual_hierarchy",
     )
     inlines = (InlinePositionAdmin,)
     add_fieldsets = (
