@@ -1500,7 +1500,11 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             ),
                             messages.WARNING,
                         )
-                    else:
+                    elif position_person_ramp_user[
+                        "manager_id"
+                    ] is None or position.reports_to_position.person.ramp_user_id != uuid.UUID(
+                        position_person_ramp_user["manager_id"]
+                    ):
                         update_ramp_manager(
                             position_person_ramp_user["id"],
                             str(position.reports_to_position.person.ramp_user_id),
