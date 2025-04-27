@@ -6,12 +6,18 @@ SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY")
 DEBUG = False
 CACHES = {
     "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URI") + "/0",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URI") + "?db=0",
+        "OPTIONS": {
+            "PASSWORD": os.environ.get("REDIS_PASSWORD"),
+        }
     },
     "session": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": os.environ.get("REDIS_URI") + "/1",
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("REDIS_URI") + "?db=1",
+        "OPTIONS": {
+            "PASSWORD": os.environ.get("REDIS_PASSWORD"),
+        }
     },
 }
 DATABASES = {

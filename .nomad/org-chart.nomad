@@ -274,6 +274,9 @@ job "org-chart" {
         data = <<EOH
 bind 127.0.0.1
 port {{ env "NOMAD_PORT_resp" }}
+unixsocket /alloc/tmp/redis.sock
+unixsocketperm 777
+requirepass {{ env "NOMAD_ALLOC_ID" }}
 maxmemory {{ env "NOMAD_MEMORY_MAX_LIMIT" }}mb
 maxmemory-policy allkeys-lru
 EOH
