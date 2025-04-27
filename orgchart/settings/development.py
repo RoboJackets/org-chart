@@ -159,3 +159,5 @@ CACHES = {
         "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
+RAMP_CLIENT_ID = os.environ["RAMP_CLIENT_ID"]
+RAMP_CLIENT_SECRET = os.environ["RAMP_CLIENT_SECRET"]

@@ -1,3 +1,4 @@
+import uuid
 from collections import defaultdict
 from gettext import ngettext
 from typing import Literal, List, Dict, Any
@@ -17,6 +18,7 @@ from requests import post, get, patch
 from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
 from .apiary import get_teams
 from .models import Person, Position
+from .ramp import get_ramp_users, get_ramp_access_token, get_ramp_user, update_ramp_manager
 
 
 class InlinePositionAdmin(admin.StackedInline):  # type: ignore
@@ -180,6 +182,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         if "action" in request.POST and request.POST["action"] in (
             "fetch_users_from_keycloak",
             "fetch_hierarchy_from_apiary",
+            "reconcile_ramp_users",
         ):
             r = request.POST.copy()
             for p in Person.objects.all():
@@ -187,9 +190,213 @@ class PersonAdmin(UserAdmin):  # type: ignore
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
+    def save_model(  # pylint: disable=too-many-branches
+        self, request: HttpRequest, obj: Person, form: Any, change: Any
+    ) -> None:
+        super().save_model(request, obj, form, change)
+
+        person = obj
+
+        if person.ramp_user_id is not None:
+            ramp_token = get_ramp_access_token("users:read users:write")
+
+            ramp_user = get_ramp_user(str(person.ramp_user_id), ramp_token)
+
+            if hasattr(person, "position"):
+                if (
+                    person.position.reports_to_position is None
+                    and ramp_user["manager_id"] is not None
+                ):
+                    update_ramp_manager(ramp_user["id"], None, ramp_token)
+
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Removed manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                            + ramp_user["id"]
+                            + '">'
+                            + str(person)
+                            + "</a> in Ramp, because "
+                            + '<a href="'
+                            + reverse("admin:org_position_change", args=(person.position.id,))
+                            + '">'
+                            + str(person.position)
+                            + "</a> does not have a reporting position."
+                        ),
+                        messages.SUCCESS,
+                    )
+
+                if person.position.reports_to_position is not None:
+                    if person.position.reports_to_position.person is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_position_change",
+                                    args=(person.position.reports_to_position.id,),
+                                )
+                                + '">'
+                                + str(person.position.reports_to_position)
+                                + "</a> in Ramp, but this position is vacant."
+                            ),
+                            messages.WARNING,
+                        )
+                    elif person.position.reports_to_position.person.ramp_user_id is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(person.position.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(person.position.reports_to_position.person)
+                                + "</a> in Ramp, but "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(person.position.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(person.position.reports_to_position.person)
+                                + "</a> does not have a Ramp account."
+                            ),
+                            messages.WARNING,
+                        )
+                    else:
+                        update_ramp_manager(
+                            ramp_user["id"],
+                            str(person.position.reports_to_position.person.ramp_user_id),
+                            ramp_token,
+                        )
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                                + ramp_user["id"]
+                                + '">'
+                                + str(person)
+                                + '</a> to <a href="https://app.ramp.com/people/all/'
+                                + str(person.position.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(person.position.reports_to_position.person)
+                                + "</a> in Ramp."
+                            ),
+                            messages.SUCCESS,
+                        )
+            else:
+                if person.reports_to_position is None and ramp_user["manager_id"] is not None:
+                    update_ramp_manager(ramp_user["id"], None, ramp_token)
+
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Removed manager for <a href="https://app.ramp.com/people/all/'
+                            + ramp_user["id"]
+                            + '">'
+                            + str(person)
+                            + "</a> in Ramp, because this person does not have a reporting position."  # noqa
+                        ),
+                        messages.SUCCESS,
+                    )
+
+                if person.reports_to_position is not None:
+                    if person.reports_to_position.person is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_position_change",
+                                    args=(person.reports_to_position.id,),
+                                )
+                                + '">'
+                                + str(person.reports_to_position)
+                                + "</a> in Ramp, but this position is vacant."
+                            ),
+                            messages.WARNING,
+                        )
+                    elif person.reports_to_position.person.ramp_user_id is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(person.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(person.reports_to_position.person)
+                                + "</a> in Ramp, but "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(person.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(person.reports_to_position.person)
+                                + "</a> does not have a Ramp account."
+                            ),
+                            messages.WARNING,
+                        )
+                    else:
+                        update_ramp_manager(
+                            ramp_user["id"],
+                            str(person.reports_to_position.person.ramp_user_id),
+                            ramp_token,
+                        )
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                                + ramp_user["id"]
+                                + '">'
+                                + str(person)
+                                + '</a> to <a href="https://app.ramp.com/people/all/'
+                                + str(person.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(person.reports_to_position.person)
+                                + "</a> in Ramp."
+                            ),
+                            messages.SUCCESS,
+                        )
+
     actions = [
         "fetch_users_from_keycloak",
         "fetch_hierarchy_from_apiary",
+        "reconcile_ramp_users",
     ]
 
     @admin.action(permissions=["add"], description="Fetch people from Keycloak")
@@ -537,6 +744,357 @@ class PersonAdmin(UserAdmin):  # type: ignore
                 messages.SUCCESS,
             )
 
+    @admin.action(permissions=["change"], description="Reconcile Ramp users")
+    def reconcile_ramp_users(  # pylint: disable=too-many-branches,too-many-statements
+        self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
+    ) -> None:
+        """
+        Compare the list of Ramp users with OrgChart and identify any discrepancies.
+        """
+        ramp_users = get_ramp_users(get_ramp_access_token("users:read"))
+        warnings = 0
+
+        for ramp_user in ramp_users:
+            try:
+                local_user = Person.objects.get(ramp_user_id__iexact=ramp_user["id"])
+            except Person.DoesNotExist:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        '<a href="https://app.ramp.com/people/all/'
+                        + ramp_user["id"]
+                        + '">'
+                        + ramp_user["first_name"]
+                        + " "
+                        + ramp_user["last_name"]
+                        + "</a> has a Ramp account, but is not in OrgChart."
+                    ),
+                    messages.WARNING,
+                )
+                warnings += 1
+                continue
+
+            if local_user.is_active:
+                if ramp_user["status"] != "USER_ACTIVE":
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            '<a href="https://app.ramp.com/people/all/'
+                            + ramp_user["id"]
+                            + '">'
+                            + ramp_user["first_name"]
+                            + " "
+                            + ramp_user["last_name"]
+                            + "</a> has a Ramp account, but the status is "
+                            + ramp_user["status"]
+                            + "."
+                        ),
+                        messages.WARNING,
+                    )
+                    warnings += 1
+                    continue
+            elif ramp_user["status"] == "USER_ACTIVE":
+                self.message_user(
+                    request,
+                    mark_safe(
+                        '<a href="https://app.ramp.com/people/all/'
+                        + ramp_user["id"]
+                        + '">'
+                        + ramp_user["first_name"]
+                        + " "
+                        + ramp_user["last_name"]
+                        + "</a> has an active Ramp account, but they are not active in OrgChart."
+                    ),
+                    messages.WARNING,
+                )
+                warnings += 1
+                continue
+
+            if hasattr(local_user, "position"):
+                this_position = local_user.position
+
+                if (
+                    this_position.reports_to_position is None
+                    and ramp_user["manager_id"] is not None
+                ):
+                    current_manager_in_ramp = [
+                        u for u in ramp_users if u["id"] == ramp_user["manager_id"]
+                    ][0]
+
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            '<a href="https://app.ramp.com/people/all/'
+                            + ramp_user["id"]
+                            + '">'
+                            + ramp_user["first_name"]
+                            + " "
+                            + ramp_user["last_name"]
+                            + "</a> should not have a manager in Ramp, but currently reports to "
+                            + '<a href="https://app.ramp.com/people/all/'
+                            + ramp_user["manager_id"]
+                            + '">'
+                            + current_manager_in_ramp["first_name"]
+                            + " "
+                            + current_manager_in_ramp["last_name"]
+                            + "</a>."
+                        ),
+                        messages.WARNING,
+                    )
+                    warnings += 1
+                    continue
+
+                if this_position.reports_to_position is None and ramp_user["manager_id"] is None:
+                    # user matches across Ramp and OrgChart
+                    continue
+
+                if this_position.reports_to_position.person is not None:
+                    if this_position.reports_to_position.person.ramp_user_id is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
+                                )
+                                + '">'
+                                + str(local_user.reports_to_position.person)  # type: ignore
+                                + "</a>, but "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
+                                )
+                                + '">'
+                                + str(local_user.reports_to_position.person)  # type: ignore
+                                + "</a> does not have a Ramp account."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                    if ramp_user["manager_id"] is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + str(this_position.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(this_position.reports_to_position.person)
+                                + "</a>, but does not have a manager in Ramp."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                    if (
+                        uuid.UUID(ramp_user["manager_id"])
+                        != this_position.reports_to_position.person.ramp_user_id
+                    ):
+                        current_manager_in_ramp = [
+                            u for u in ramp_users if u["id"] == ramp_user["manager_id"]
+                        ][0]
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + str(this_position.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(this_position.reports_to_position.person)
+                                + "</a>, but currently reports to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["manager_id"]
+                                + '">'
+                                + current_manager_in_ramp["first_name"]
+                                + " "
+                                + current_manager_in_ramp["last_name"]
+                                + "</a>."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+            else:
+                if local_user.reports_to_position is None:
+                    if ramp_user["manager_id"] is not None:
+                        current_manager_in_ramp = [
+                            u for u in ramp_users if u["id"] == ramp_user["manager_id"]
+                        ][0]
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should not have a manager in Ramp, but currently reports to "  # noqa
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["manager_id"]
+                                + '">'
+                                + current_manager_in_ramp["first_name"]
+                                + " "
+                                + current_manager_in_ramp["last_name"]
+                                + "</a>."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                else:
+                    if local_user.reports_to_position.person is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_position_change",
+                                    args=(local_user.reports_to_position.id,),
+                                )
+                                + '">'
+                                + str(local_user.reports_to_position)
+                                + "</a>, but this position is vacant."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                    if local_user.reports_to_position.person.ramp_user_id is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(local_user.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(local_user.reports_to_position.person)
+                                + "</a>, but "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(local_user.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(local_user.reports_to_position.person)
+                                + "</a> does not have a Ramp account."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                    if (
+                        local_user.reports_to_position.person.ramp_user_id is not None
+                        and ramp_user["manager_id"] is None
+                    ):
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + str(local_user.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(local_user.reports_to_position.person)
+                                + "</a>, but does not have a manager in Ramp."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+                        continue
+
+                    if local_user.reports_to_position.person.ramp_user_id != uuid.UUID(
+                        ramp_user["manager_id"]
+                    ):
+                        current_manager_in_ramp = [
+                            u for u in ramp_users if u["id"] == ramp_user["manager_id"]
+                        ][0]
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["id"]
+                                + '">'
+                                + ramp_user["first_name"]
+                                + " "
+                                + ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + str(local_user.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(local_user.reports_to_position.person)
+                                + "</a>, but currently reports to "
+                                + '<a href="https://app.ramp.com/people/all/'
+                                + ramp_user["manager_id"]
+                                + '">'
+                                + current_manager_in_ramp["first_name"]
+                                + " "
+                                + current_manager_in_ramp["last_name"]
+                                + "</a>."
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+
+        if warnings == 0:
+            self.message_user(
+                request,
+                "All Ramp users match OrgChart.",
+                messages.SUCCESS,
+            )
+
 
 class PositionAdmin(admin.ModelAdmin):  # type: ignore
     """
@@ -587,15 +1145,17 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
     ) -> None:
         super().save_model(request, obj, form, change)
 
+        position = obj
+
         new_project_manager_id = None
 
-        if obj.person is not None:
-            if obj.person.apiary_user_id is None:
+        if position.person is not None:
+            if position.person.apiary_user_id is None:
                 return
 
-            new_project_manager_id = obj.person.apiary_user_id
+            new_project_manager_id = position.person.apiary_user_id
 
-        apiary_team_id = obj.manages_apiary_team
+        apiary_team_id = position.manages_apiary_team
 
         if apiary_team_id is not None:  # pylint: disable=too-many-nested-blocks
             get_team_response = get(
@@ -694,7 +1254,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
 
                 possible_prior_project_managers = Person.objects.filter(
                     member_of_apiary_team__exact=apiary_team_id, manual_hierarchy__exact=False
-                ).exclude(reports_to_position__exact=obj)
+                ).exclude(reports_to_position__exact=position)
 
                 for person in possible_prior_project_managers:
                     user_response = get(
@@ -856,6 +1416,200 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                         )
 
                     person.save()
+
+        ramp_token = get_ramp_access_token("users:read users:write")
+
+        if position.person is not None:
+            if position.person.ramp_user_id is not None:
+                position_person_ramp_user = get_ramp_user(
+                    str(position.person.ramp_user_id), ramp_token
+                )
+
+                if (
+                    position.reports_to_position is None
+                    and position_person_ramp_user["manager_id"] is not None
+                ):
+                    update_ramp_manager(position_person_ramp_user["id"], None, ramp_token)
+
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            'Removed manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                            + position_person_ramp_user["id"]
+                            + '">'
+                            + str(position.person)
+                            + "</a> in Ramp, because "
+                            + '<a href="'
+                            + reverse("admin:org_position_change", args=(position.id,))
+                            + '">'
+                            + str(position)
+                            + "</a> does not have a reporting position."
+                        ),
+                        messages.SUCCESS,
+                    )
+
+                if position.reports_to_position is not None:
+                    if position.reports_to_position.person is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + position_person_ramp_user["id"]
+                                + '">'
+                                + position_person_ramp_user["first_name"]
+                                + " "
+                                + position_person_ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_position_change",
+                                    args=(position.reports_to_position.id,),
+                                )
+                                + '">'
+                                + str(position.reports_to_position)
+                                + "</a> in Ramp, but this position is vacant."
+                            ),
+                            messages.WARNING,
+                        )
+                    elif position.reports_to_position.person.ramp_user_id is None:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.ramp.com/people/all/'
+                                + position_person_ramp_user["id"]
+                                + '">'
+                                + position_person_ramp_user["first_name"]
+                                + " "
+                                + position_person_ramp_user["last_name"]
+                                + "</a> should report to "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(position.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(position.reports_to_position.person)
+                                + "</a> in Ramp, but "
+                                + '<a href="'
+                                + reverse(
+                                    "admin:org_person_change",
+                                    args=(position.reports_to_position.person.id,),
+                                )
+                                + '">'
+                                + str(position.reports_to_position.person)
+                                + "</a> does not have a Ramp account."
+                            ),
+                            messages.WARNING,
+                        )
+                    else:
+                        update_ramp_manager(
+                            position_person_ramp_user["id"],
+                            str(position.reports_to_position.person.ramp_user_id),
+                            ramp_token,
+                        )
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                                + position_person_ramp_user["id"]
+                                + '">'
+                                + str(position.person)
+                                + '</a> to <a href="https://app.ramp.com/people/all/'
+                                + str(position.reports_to_position.person.ramp_user_id)
+                                + '">'
+                                + str(position.reports_to_position.person)
+                                + "</a> in Ramp."
+                            ),
+                            messages.SUCCESS,
+                        )
+
+            users_to_update = 0
+
+            ramp_users = get_ramp_users(ramp_token)
+
+            for ramp_user in ramp_users:
+                try:
+                    local_user = Person.objects.get(ramp_user_id__iexact=ramp_user["id"])
+                except Person.DoesNotExist:
+                    continue
+
+                if (
+                    hasattr(local_user, "position")
+                    and local_user.position.reports_to_position == position
+                ):
+                    if position.person.ramp_user_id is None:
+                        users_to_update += 1
+                    else:
+                        update_ramp_manager(
+                            ramp_user["id"], str(position.person.ramp_user_id), ramp_token
+                        )
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                                + ramp_user["id"]
+                                + '">'
+                                + str(local_user)
+                                + '</a> to <a href="https://app.ramp.com/people/all/'
+                                + str(position.person.ramp_user_id)
+                                + '">'
+                                + str(position.person)
+                                + "</a> in Ramp."
+                            ),
+                            messages.SUCCESS,
+                        )
+                elif (
+                    not hasattr(local_user, "position")
+                    and local_user.reports_to_position == position
+                ):
+                    if position.person.ramp_user_id is None:
+                        users_to_update += 1
+                    else:
+                        update_ramp_manager(
+                            ramp_user["id"], str(position.person.ramp_user_id), ramp_token
+                        )
+
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                'Updated manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                                + ramp_user["id"]
+                                + '">'
+                                + str(local_user)
+                                + '</a> to <a href="https://app.ramp.com/people/all/'
+                                + str(position.person.ramp_user_id)
+                                + '">'
+                                + str(position.person)
+                                + "</a> in Ramp."
+                            ),
+                            messages.SUCCESS,
+                        )
+
+            if users_to_update > 0:
+                self.message_user(
+                    request,
+                    mark_safe(
+                        ngettext(
+                            "%d person reports to this position, but can't be updated in Ramp, because "  # noqa
+                            + '<a href="'
+                            + reverse("admin:org_person_change", args=(position.person.id,))
+                            + '">'
+                            + str(position.person)
+                            + "</a> doesn't have a Ramp account.",
+                            "%d people report to this position, but can't be updated in Ramp, because "  # noqa
+                            + '<a href="'
+                            + reverse("admin:org_person_change", args=(position.person.id,))
+                            + '">'
+                            + str(position.person)
+                            + "</a> doesn't have a Ramp account.",
+                            users_to_update,
+                        )
+                        % users_to_update
+                    ),
+                    messages.WARNING,
+                )
 
     actions = [
         "fetch_positions_from_apiary",
