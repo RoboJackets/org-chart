@@ -208,23 +208,21 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     person.position.reports_to_position is None
                     and ramp_user["manager_id"] is not None
                 ):
-                    update_ramp_manager(ramp_user["id"], None, ramp_token)
-
                     self.message_user(
                         request,
                         mark_safe(
-                            'Removed manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                            '<a href="https://app.ramp.com/people/all/'  # noqa
                             + ramp_user["id"]
                             + '">'
                             + str(person)
-                            + "</a> in Ramp, because "
+                            + "</a> should not have a manager in Ramp, because "
                             + '<a href="'
                             + reverse("admin:org_position_change", args=(person.position.id,))
                             + '">'
                             + str(person.position)
-                            + "</a> does not have a reporting position."
+                            + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa
                         ),
-                        messages.SUCCESS,
+                        messages.WARNING,
                     )
 
                 if person.position.reports_to_position is not None:
@@ -304,18 +302,16 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         )
             else:
                 if person.reports_to_position is None and ramp_user["manager_id"] is not None:
-                    update_ramp_manager(ramp_user["id"], None, ramp_token)
-
                     self.message_user(
                         request,
                         mark_safe(
-                            'Removed manager for <a href="https://app.ramp.com/people/all/'
+                            '<a href="https://app.ramp.com/people/all/'
                             + ramp_user["id"]
                             + '">'
                             + str(person)
-                            + "</a> in Ramp, because this person does not have a reporting position."  # noqa
+                            + "</a> should not have a manager in Ramp, because this person does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa
                         ),
-                        messages.SUCCESS,
+                        messages.WARNING,
                     )
 
                 if person.reports_to_position is not None:
@@ -1434,23 +1430,21 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                     position.reports_to_position is None
                     and position_person_ramp_user["manager_id"] is not None
                 ):
-                    update_ramp_manager(position_person_ramp_user["id"], None, ramp_token)
-
                     self.message_user(
                         request,
                         mark_safe(
-                            'Removed manager for <a href="https://app.ramp.com/people/all/'  # noqa
+                            '<a href="https://app.ramp.com/people/all/'  # noqa
                             + position_person_ramp_user["id"]
                             + '">'
                             + str(position.person)
-                            + "</a> in Ramp, because "
+                            + "</a> should not have a manager in Ramp, because "
                             + '<a href="'
                             + reverse("admin:org_position_change", args=(position.id,))
                             + '">'
                             + str(position)
-                            + "</a> does not have a reporting position."
+                            + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa
                         ),
-                        messages.SUCCESS,
+                        messages.WARNING,
                     )
 
                 if position.reports_to_position is not None:

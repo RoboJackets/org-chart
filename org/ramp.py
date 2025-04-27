@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Union
+from typing import List, Dict
 
 from django.conf import settings
 from requests import post, get, patch
@@ -66,7 +66,7 @@ def get_ramp_user(user_id: str, token: str) -> Dict[str, str]:
     return ramp_user_response.json()  # type: ignore
 
 
-def update_ramp_manager(user_id: str, manager_id: Union[str, None], token: str) -> None:
+def update_ramp_manager(user_id: str, manager_id: str, token: str) -> None:
     """
     Update a user's manager in Ramp.
     """
