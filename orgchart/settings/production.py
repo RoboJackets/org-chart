@@ -1,3 +1,5 @@
+import sentry_sdk
+
 from .development import *  # pylint: disable=wildcard-import,unused-wildcard-import
 
 # mypy: ignore-errors
@@ -34,3 +36,8 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 SESSION_ENGINE = "django.contrib.sessions.backends.cache"
 SESSION_CACHE_ALIAS = "session"
+
+sentry_sdk.init(
+    dsn=os.environ.get("SENTRY_DSN"),
+    send_default_pii=True,
+)
