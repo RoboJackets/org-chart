@@ -582,7 +582,9 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
-    def save_model(self, request: HttpRequest, obj: Position, form: Any, change: Any) -> None:
+    def save_model(  # pylint: disable=too-many-locals,too-many-branches,too-many-statements
+        self, request: HttpRequest, obj: Position, form: Any, change: Any
+    ) -> None:
         super().save_model(request, obj, form, change)
 
         new_project_manager_id = None
@@ -595,7 +597,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
 
         apiary_team_id = obj.manages_apiary_team
 
-        if apiary_team_id is not None:
+        if apiary_team_id is not None:  # pylint: disable=too-many-nested-blocks
             get_team_response = get(
                 url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
                 headers={
@@ -690,7 +692,9 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                         messages.WARNING,
                     )
 
-                possible_prior_project_managers = Person.objects.filter(member_of_apiary_team__exact=apiary_team_id, manual_hierarchy__exact=False).exclude(reports_to_position__exact=obj)
+                possible_prior_project_managers = Person.objects.filter(
+                    member_of_apiary_team__exact=apiary_team_id, manual_hierarchy__exact=False
+                ).exclude(reports_to_position__exact=obj)
 
                 for person in possible_prior_project_managers:
                     user_response = get(
@@ -776,7 +780,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                         + reverse("admin:org_person_change", args=(person.id,))
                                         + '">'
                                         + str(person)
-                                        + '</a> to <a href="https://my.robojackets.org/nova/resources/teams/'
+                                        + '</a> to <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
                                         + str(apiary_primary_team_id)
                                         + '">'
                                         + get_teams()[apiary_primary_team_id]
@@ -808,7 +812,10 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                             + '">'
                                             + str(person)
                                             + '</a> to <a href="'
-                                            + reverse("admin:org_position_change", args=(person_reports_to_position.id,))
+                                            + reverse(
+                                                "admin:org_position_change",
+                                                args=(person_reports_to_position.id,),
+                                            )
                                             + '">'
                                             + str(person_reports_to_position)
                                             + "</a>."
@@ -842,7 +849,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                 + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
                                 + str(person)
-                                + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."
+                                + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
                                 # noqa
                             ),
                             messages.WARNING,
