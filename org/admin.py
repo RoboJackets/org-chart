@@ -107,6 +107,9 @@ class InlinePersonAdmin(admin.TabularInline):  # type: ignore
     def get_readonly_fields(self, request, obj=None) -> List[str]:  # type: ignore
         return list(super().get_fields(request, obj))  # type: ignore
 
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Person]:
+        return super().get_queryset(request).filter(position__isnull=True)
+
 
 class PersonAdmin(UserAdmin):  # type: ignore
     """
