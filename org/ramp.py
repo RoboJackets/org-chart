@@ -39,6 +39,9 @@ def get_ramp_users(token: str) -> List[Dict[str, str]]:
             "Accept": "application/json",
         },
         timeout=(5, 5),
+        params={
+            "page_size": 100,
+        }
     )
 
     if ramp_users_response.status_code != 200 or "data" not in ramp_users_response.json():
