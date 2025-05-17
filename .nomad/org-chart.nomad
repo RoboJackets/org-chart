@@ -238,6 +238,68 @@ job "org-chart" {
       shutdown_delay = "30s"
     }
 
+    task "worker" {
+      driver = "docker"
+
+      lifecycle {
+        hook = "poststart"
+        sidecar = true
+      }
+
+      consul {}
+
+      config {
+        image = var.image
+
+        network_mode = "host"
+
+        entrypoint = [
+          "/usr/local/bin/celery",
+          "--app",
+          "orgchart",
+          "worker",
+          "--loglevel",
+          "DEBUG",
+        ]
+      }
+
+      resources {
+        cpu = 100
+        memory = 256
+        memory_max = 2048
+      }
+
+      template {
+        data = trimspace(file("conf/.env.tpl"))
+
+        destination = "/secrets/.env"
+        env = true
+      }
+
+      template {
+        data = "SENTRY_RELEASE=\"${split("@", var.image)[1]}\""
+
+        destination = "/secrets/.sentry_release"
+        env = true
+      }
+
+      template {
+        data = "DJANGO_ALLOWED_HOSTS=\"${var.hostname}\""
+
+        destination = "/secrets/.django_allowed_hosts"
+        env = true
+      }
+
+      restart {
+        attempts = 1
+        delay = "10s"
+        interval = "1m"
+        mode = "fail"
+      }
+
+      shutdown_delay = "30s"
+    }
+
     task "redis" {
       driver = "docker"
 
