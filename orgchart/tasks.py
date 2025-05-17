@@ -114,7 +114,7 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
                 if ramp_manager is not None:
                     ramp_manager_position = Position.objects.get(person=ramp_manager)
 
-                    if ramp_manager_position.id == apiary_manager_position.id:  # type: ignore
+                    if ramp_manager_position.id == apiary_manager_position.id:
                         this_person.reports_to_position = apiary_manager_position
                     else:
                         this_person.reports_to_position = ramp_manager_position

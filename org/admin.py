@@ -191,7 +191,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         ):
             r = request.POST.copy()
             for p in Person.objects.all():
-                r.update({ACTION_CHECKBOX_NAME: str(p.id)})  # type: ignore
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
@@ -567,7 +567,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         request,
                         mark_safe(
                             '<a href="'
-                            + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
+                            + reverse("admin:org_person_change", args=(person.id,))
                             + '">'
                             + str(person)
                             + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
@@ -582,7 +582,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     request,
                     mark_safe(
                         '<a href="'
-                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
+                        + reverse("admin:org_person_change", args=(person.id,))
                         + '">'
                         + str(person)
                         + "</a> was not found in Apiary."
@@ -638,7 +638,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     request,
                     mark_safe(
                         '<a href="'
-                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
+                        + reverse("admin:org_person_change", args=(person.id,))
                         + '">'
                         + str(person)
                         + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
@@ -827,18 +827,18 @@ class PersonAdmin(UserAdmin):  # type: ignore
                                 + '<a href="'
                                 + reverse(
                                     "admin:org_person_change",
-                                    args=(local_user.reports_to_position.person.id,),
+                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
                                 )
                                 + '">'
-                                + str(local_user.reports_to_position.person)
+                                + str(local_user.reports_to_position.person)  # type: ignore
                                 + "</a>, but "
                                 + '<a href="'
                                 + reverse(
                                     "admin:org_person_change",
-                                    args=(local_user.reports_to_position.person.id,),
+                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
                                 )
                                 + '">'
-                                + str(local_user.reports_to_position.person)
+                                + str(local_user.reports_to_position.person)  # type: ignore
                                 + "</a> does not have a Ramp account."
                             ),
                             messages.WARNING,
@@ -1100,7 +1100,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
         if "action" in request.POST and request.POST["action"] in ("fetch_positions_from_apiary",):
             r = request.POST.copy()
             for p in Person.objects.all():
-                r.update({ACTION_CHECKBOX_NAME: str(p.id)})  # type: ignore
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
@@ -1232,7 +1232,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                 request,
                                 mark_safe(
                                     '<a href="'
-                                    + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                    + reverse("admin:org_person_change", args=(person.id,))
                                     + '">'
                                     + str(person)
                                     + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
@@ -1246,7 +1246,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 '<a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
                                 + str(person)
                                 + "</a> was not found in Apiary."
@@ -1261,7 +1261,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 'Updated active status for <a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
                                 + str(person)
                                 + "</a>."
@@ -1284,7 +1284,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                     request,
                                     mark_safe(
                                         'Updated primary team for <a href="'
-                                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                        + reverse("admin:org_person_change", args=(person.id,))
                                         + '">'
                                         + str(person)
                                         + '</a> to <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
@@ -1315,13 +1315,13 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                         request,
                                         mark_safe(
                                             'Updated reporting position for <a href="'
-                                            + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                            + reverse("admin:org_person_change", args=(person.id,))
                                             + '">'
                                             + str(person)
                                             + '</a> to <a href="'
                                             + reverse(
                                                 "admin:org_position_change",
-                                                args=(person_reports_to_position.id,),  # type: ignore  # noqa
+                                                args=(person_reports_to_position.id,),
                                             )
                                             + '">'
                                             + str(person_reports_to_position)
@@ -1341,7 +1341,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 'Updated Apiary user ID for <a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
                                 + str(person)
                                 + "</a>."
@@ -1353,7 +1353,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 '<a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
+                                + reverse("admin:org_person_change", args=(person.id,))
                                 + '">'
                                 + str(person)
                                 + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
@@ -1385,7 +1385,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             + str(position.person)
                             + "</a> should not have a manager in Ramp, because "
                             + '<a href="'
-                            + reverse("admin:org_position_change", args=(position.id,))  # type: ignore  # noqa
+                            + reverse("admin:org_position_change", args=(position.id,))
                             + '">'
                             + str(position)
                             + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa

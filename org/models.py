@@ -9,7 +9,7 @@ class Position(models.Model):
     A position is an elected or appointed office, such as president, treasurer, or project manager
     """
 
-    name = models.CharField(  # type: ignore
+    name = models.CharField(
         max_length=100,
         verbose_name="Short title",
         help_text="The short-form title of this position, not including a team name.",
@@ -17,25 +17,25 @@ class Position(models.Model):
     manages_apiary_team = models.IntegerField(
         null=True,
         blank=True,
-        choices=get_teams,  # type: ignore
+        choices=get_teams,
         unique=True,
         verbose_name="Manages team",
         help_text="If this position is the primary leader for a team, select it here. Only one position can be the team manager.",  # noqa
     )
     member_of_apiary_team = models.IntegerField(
-        choices=get_teams,  # type: ignore
+        choices=get_teams,
         verbose_name="Primary team",
         help_text="The primary team this position supports.",
     )
-    reports_to_position = models.ForeignKey(  # type: ignore
+    reports_to_position = models.ForeignKey(
         "self", null=True, blank=True, on_delete=models.CASCADE, verbose_name="Reports to"
     )
-    person = models.OneToOneField(  # type: ignore
+    person = models.OneToOneField(
         "Person", null=True, blank=True, on_delete=models.CASCADE, unique=True
     )
 
     def __str__(self) -> str:
-        return get_teams()[self.member_of_apiary_team] + " " + self.name  # type: ignore
+        return get_teams()[self.member_of_apiary_team] + " " + self.name
 
     class Meta:
         constraints = [
@@ -50,16 +50,16 @@ class Person(AbstractUser):
     A person is a human who may or may not be occupying a position
     """
 
-    apiary_user_id = models.IntegerField(  # type: ignore
+    apiary_user_id = models.IntegerField(
         null=True, blank=True, unique=True, verbose_name="Apiary user ID"
     )
-    ramp_user_id = models.UUIDField(null=True, blank=True, unique=True, verbose_name="Ramp user ID")  # type: ignore  # noqa
-    keycloak_user_id = models.UUIDField(  # type: ignore
+    ramp_user_id = models.UUIDField(null=True, blank=True, unique=True, verbose_name="Ramp user ID")
+    keycloak_user_id = models.UUIDField(
         null=True, blank=True, unique=True, verbose_name="Keycloak user ID"
     )
-    google_workspace_user_id = models.CharField(null=True, blank=True, max_length=100, unique=True)  # type: ignore  # noqa
-    slack_user_id = models.CharField(null=True, blank=True, max_length=9, unique=True)  # type: ignore  # noqa
-    reports_to_position = models.ForeignKey(  # type: ignore
+    google_workspace_user_id = models.CharField(null=True, blank=True, max_length=100, unique=True)
+    slack_user_id = models.CharField(null=True, blank=True, max_length=9, unique=True)
+    reports_to_position = models.ForeignKey(
         "Position",
         null=True,
         blank=True,
@@ -71,17 +71,17 @@ class Person(AbstractUser):
     member_of_apiary_team = models.IntegerField(
         null=True,
         blank=True,
-        choices=get_teams,  # type: ignore
+        choices=get_teams,
         verbose_name="Primary team",
         help_text="If this person is in a position, the primary team for their position will take precedence.",  # noqa
     )
-    manual_hierarchy = models.BooleanField(  # type: ignore
+    manual_hierarchy = models.BooleanField(
         default=False,
         help_text="Designates whether the reporting position or primary team have been set manually. Both values may be automatically changed based on Apiary data if this is not enabled.",  # noqa
     )
 
     def __str__(self) -> str:
-        return self.first_name + " " + self.last_name  # type: ignore
+        return self.first_name + " " + self.last_name
 
     class Meta:
         verbose_name_plural = "people"
