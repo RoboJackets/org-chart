@@ -13,10 +13,11 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.core.cache import cache
-from requests import post, get, patch
+from requests import get, patch
 
 from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
-from .apiary import get_teams
+from .apiary import get_teams, get_apiary_user
+from .keycloak import get_keycloak_access_token
 from .models import Person, Position
 from .ramp import get_ramp_users, get_ramp_access_token, get_ramp_user, update_ramp_manager
 
@@ -190,7 +191,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         ):
             r = request.POST.copy()
             for p in Person.objects.all():
-                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})  # type: ignore
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
@@ -410,32 +411,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
         """
         Fetch user information from Keycloak and update or create local users as needed
         """
-        keycloak_access_token_response = post(
-            url=settings.KEYCLOAK_SERVER + "/realms/master/protocol/openid-connect/token",
-            data={
-                "client_id": settings.KEYCLOAK_ADMIN_CLIENT_ID,
-                "client_secret": settings.KEYCLOAK_ADMIN_CLIENT_SECRET,
-                "grant_type": "client_credentials",
-            },
-            timeout=(
-                5,
-                5,
-            ),
-        )
-
-        if keycloak_access_token_response.status_code != 200:
-            self.message_user(
-                request,
-                "Error retrieving Keycloak access token: " + keycloak_access_token_response.text,
-                messages.ERROR,
-            )
-            return
-
         keycloak_user_list_response = get(
             url=settings.KEYCLOAK_SERVER + "/admin/realms/robojackets/users",
             headers={
-                "Authorization": "Bearer "
-                + keycloak_access_token_response.json().get("access_token"),
+                "Authorization": "Bearer " + get_keycloak_access_token(),
             },
             params={
                 "max": 1000,
@@ -577,59 +556,40 @@ class PersonAdmin(UserAdmin):  # type: ignore
         updated_reports_to_position_count = 0
 
         for person in Person.objects.all():
-            apiary_user = cache.get("apiary_user_" + person.username)
+            apiary_user = get_apiary_user(person.username)
 
             if apiary_user is None:
-                user_response = get(
-                    url=settings.APIARY_SERVER + "/api/v1/users/" + person.username,
-                    headers={
-                        "Authorization": "Bearer " + settings.APIARY_TOKEN,
-                        "Accept": "application/json",
-                    },
-                    timeout=(5, 5),
-                )
-
-                if user_response.status_code == 404:
-                    if person.is_active:
-                        person.is_active = False
-                        person.save()
-
-                        self.message_user(
-                            request,
-                            mark_safe(
-                                '<a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))
-                                + '">'
-                                + str(person)
-                                + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
-                            ),
-                            messages.WARNING,
-                        )
-
-                        updated_active_flag_count += 1
-                        continue
+                if person.is_active:
+                    person.is_active = False
+                    person.save()
 
                     self.message_user(
                         request,
                         mark_safe(
                             '<a href="'
-                            + reverse("admin:org_person_change", args=(person.id,))
+                            + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
                             + '">'
                             + str(person)
-                            + "</a> was not found in Apiary."
+                            + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
                         ),
                         messages.WARNING,
                     )
+
+                    updated_active_flag_count += 1
                     continue
 
-                if user_response.status_code != 200:
-                    raise Exception("Error retrieving user from Apiary: " + user_response.text)
-
-                if "user" not in user_response.json():
-                    raise KeyError("Error retrieving user from Apiary: " + user_response.text)
-
-                apiary_user = user_response.json()["user"]
-                cache.set("apiary_user_" + person.username, apiary_user, timeout=None)
+                self.message_user(
+                    request,
+                    mark_safe(
+                        '<a href="'
+                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
+                        + '">'
+                        + str(person)
+                        + "</a> was not found in Apiary."
+                    ),
+                    messages.WARNING,
+                )
+                continue
 
             if person.is_active != apiary_user["is_access_active"]:
                 person.is_active = apiary_user["is_access_active"]
@@ -678,7 +638,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     request,
                     mark_safe(
                         '<a href="'
-                        + reverse("admin:org_person_change", args=(person.id,))
+                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore
                         + '">'
                         + str(person)
                         + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
@@ -867,18 +827,18 @@ class PersonAdmin(UserAdmin):  # type: ignore
                                 + '<a href="'
                                 + reverse(
                                     "admin:org_person_change",
-                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
+                                    args=(local_user.reports_to_position.person.id,),
                                 )
                                 + '">'
-                                + str(local_user.reports_to_position.person)  # type: ignore
+                                + str(local_user.reports_to_position.person)
                                 + "</a>, but "
                                 + '<a href="'
                                 + reverse(
                                     "admin:org_person_change",
-                                    args=(local_user.reports_to_position.person.id,),  # type: ignore  # noqa
+                                    args=(local_user.reports_to_position.person.id,),
                                 )
                                 + '">'
-                                + str(local_user.reports_to_position.person)  # type: ignore
+                                + str(local_user.reports_to_position.person)
                                 + "</a> does not have a Ramp account."
                             ),
                             messages.WARNING,
@@ -1140,7 +1100,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
         if "action" in request.POST and request.POST["action"] in ("fetch_positions_from_apiary",):
             r = request.POST.copy()
             for p in Person.objects.all():
-                r.update({ACTION_CHECKBOX_NAME: str(p.id)})
+                r.update({ACTION_CHECKBOX_NAME: str(p.id)})  # type: ignore
             request.POST = r  # type: ignore
         return super().changelist_view(request, extra_context)
 
@@ -1261,16 +1221,9 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                 ).exclude(reports_to_position__exact=position)
 
                 for person in possible_prior_project_managers:
-                    user_response = get(
-                        url=settings.APIARY_SERVER + "/api/v1/users/" + person.username,
-                        headers={
-                            "Authorization": "Bearer " + settings.APIARY_TOKEN,
-                            "Accept": "application/json",
-                        },
-                        timeout=(5, 5),
-                    )
+                    apiary_user = get_apiary_user(person.username)
 
-                    if user_response.status_code == 404:
+                    if apiary_user is None:
                         if person.is_active:
                             person.is_active = False
                             person.save()
@@ -1279,7 +1232,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                 request,
                                 mark_safe(
                                     '<a href="'
-                                    + reverse("admin:org_person_change", args=(person.id,))
+                                    + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                     + '">'
                                     + str(person)
                                     + "</a> was not found in Apiary, and was therefore deactivated in OrgChart."  # noqa
@@ -1293,7 +1246,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 '<a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))
+                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                 + '">'
                                 + str(person)
                                 + "</a> was not found in Apiary."
@@ -1302,23 +1255,13 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                         )
                         return
 
-                    if user_response.status_code != 200:
-                        raise Exception("Error retrieving user from Apiary: " + user_response.text)
-
-                    if "user" not in user_response.json():
-                        raise KeyError("Error retrieving user from Apiary: " + user_response.text)
-
-                    apiary_user = user_response.json()["user"]
-
-                    print(apiary_user)
-
                     if person.is_active != apiary_user["is_access_active"]:
                         person.is_active = apiary_user["is_access_active"]
                         self.message_user(
                             request,
                             mark_safe(
                                 'Updated active status for <a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))
+                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                 + '">'
                                 + str(person)
                                 + "</a>."
@@ -1341,7 +1284,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                     request,
                                     mark_safe(
                                         'Updated primary team for <a href="'
-                                        + reverse("admin:org_person_change", args=(person.id,))
+                                        + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                         + '">'
                                         + str(person)
                                         + '</a> to <a href="https://my.robojackets.org/nova/resources/teams/'  # noqa
@@ -1372,13 +1315,13 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                                         request,
                                         mark_safe(
                                             'Updated reporting position for <a href="'
-                                            + reverse("admin:org_person_change", args=(person.id,))
+                                            + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                             + '">'
                                             + str(person)
                                             + '</a> to <a href="'
                                             + reverse(
                                                 "admin:org_position_change",
-                                                args=(person_reports_to_position.id,),
+                                                args=(person_reports_to_position.id,),  # type: ignore  # noqa
                                             )
                                             + '">'
                                             + str(person_reports_to_position)
@@ -1398,7 +1341,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 'Updated Apiary user ID for <a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))
+                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                 + '">'
                                 + str(person)
                                 + "</a>."
@@ -1410,7 +1353,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             request,
                             mark_safe(
                                 '<a href="'
-                                + reverse("admin:org_person_change", args=(person.id,))
+                                + reverse("admin:org_person_change", args=(person.id,))  # type: ignore  # noqa
                                 + '">'
                                 + str(person)
                                 + "</a> has an Apiary user ID within OrgChart, but it does not match their actual Apiary user ID."  # noqa
@@ -1442,7 +1385,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             + str(position.person)
                             + "</a> should not have a manager in Ramp, because "
                             + '<a href="'
-                            + reverse("admin:org_position_change", args=(position.id,))
+                            + reverse("admin:org_position_change", args=(position.id,))  # type: ignore  # noqa
                             + '">'
                             + str(position)
                             + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa
@@ -1668,7 +1611,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                 except Position.DoesNotExist:
                     try:
                         Position.objects.get(person=this_team_project_manager)
-                    except Position.DoesNotExist as exc:
+                    except Position.DoesNotExist:
                         this_position = Position(
                             manages_apiary_team=team["id"],
                             member_of_apiary_team=team["id"],
@@ -1677,28 +1620,10 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                         )
                         this_position.save()
 
-                        user_response = get(
-                            url=settings.APIARY_SERVER
-                            + "/api/v1/users/"
-                            + str(team["project_manager"]["id"]),
-                            headers={
-                                "Authorization": "Bearer " + settings.APIARY_TOKEN,
-                                "Accept": "application/json",
-                            },
-                            timeout=(5, 5),
-                        )
+                        apiary_user = get_apiary_user(str(team["project_manager"]["id"]))
 
-                        if user_response.status_code != 200:
-                            raise Exception(
-                                "Unable to fetch user from Apiary: " + user_response.text
-                            ) from exc
-
-                        if "user" not in user_response.json():
-                            raise Exception(
-                                "Unable to fetch user from Apiary: " + user_response.text
-                            ) from exc
-
-                        apiary_user = user_response.json()["user"]
+                        if apiary_user is None:
+                            continue
 
                         if (
                             "manager" in apiary_user

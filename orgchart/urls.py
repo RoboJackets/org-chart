@@ -20,9 +20,12 @@ from django.http import HttpResponse
 from django.urls import path, include
 from mozilla_django_oidc.urls import OIDCAuthenticateClass  # type: ignore
 
+from orgchart.api import ImportRampUser
+
 urlpatterns = [
     path("admin/login/", OIDCAuthenticateClass.as_view()),
     path("admin/", admin.site.urls),
     path("oidc/", include("mozilla_django_oidc.urls")),
+    path("api/import-ramp-user", ImportRampUser.as_view()),
     path("ping", lambda r: HttpResponse()),
 ]

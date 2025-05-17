@@ -1,9 +1,8 @@
 from typing import Tuple
 
 from django.conf import settings
-from django.core.cache import cache
-from requests import get
 
+from org.apiary import get_apiary_user
 from org.models import Person, Position
 
 
@@ -19,26 +18,10 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
     except Person.DoesNotExist as exc:
         users_created = 0
 
-        apiary_user = cache.get("apiary_user_" + str(apiary_user_id))
+        apiary_user = get_apiary_user(str(apiary_user_id))
 
         if apiary_user is None:
-
-            user_response = get(
-                url=settings.APIARY_SERVER + "/api/v1/users/" + str(apiary_user_id),
-                headers={
-                    "Authorization": "Bearer " + settings.APIARY_TOKEN,
-                    "Accept": "application/json",
-                },
-                timeout=(5, 5),
-            )
-
-            if user_response.status_code != 200:
-                raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
-            if "user" not in user_response.json():
-                raise Exception("Unable to fetch user from Apiary: " + user_response.text) from exc
-
-            apiary_user = user_response.json()["user"]
-            cache.set("apiary_user_" + str(apiary_user_id), apiary_user, timeout=None)
+            raise Exception("Unable to fetch user from Apiary") from exc
 
         try:
             this_user = Person.objects.get(username__iexact=apiary_user["uid"])

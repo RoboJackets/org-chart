@@ -6,7 +6,7 @@ authors = [
     {name = "Kristaps Berzinch",email = "kristapsberzinch@gmail.com"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = "^3.12"
 dependencies = [
     "django (>=5.1.7,<6.0.0)",
     "mozilla-django-oidc (>=4.0.1,<5.0.0)",
@@ -16,6 +16,8 @@ dependencies = [
     "hiredis (>=3.1.0,<4.0.0)",
     "django-redis (>=5.4.0,<6.0.0)",
     "sentry-sdk[django] (>=2.27.0,<3.0.0)",
+    "djangorestframework (>=3.16.0,<4.0.0)",
+    "celery[redis] (>=5.5.2,<6.0.0)",
 ]
 
 
@@ -33,6 +35,8 @@ pylint = "^3.3.6"
 mypy = "^1.15.0"
 django-stubs = {extras = ["compatible-mypy"], version = "^5.1.3"}
 types-requests = "^2.32.0.20250328"
+celery-types = "^0.23.0"
+djangorestframework-stubs = {extras = ["compatible-mypy"], version = "^3.16.0"}
 
 [tool.black]
 line-length = 100
