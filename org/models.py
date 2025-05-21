@@ -57,7 +57,9 @@ class Person(AbstractUser):
     keycloak_user_id = models.UUIDField(
         null=True, blank=True, unique=True, verbose_name="Keycloak user ID"
     )
-    google_workspace_user_id = models.CharField(null=True, blank=True, max_length=100, unique=True)
+    google_workspace_user_id = models.CharField(
+        null=True, blank=True, max_length=100, unique=True, verbose_name="Google Workspace user ID"
+    )
     slack_user_id = models.CharField(null=True, blank=True, max_length=9, unique=True)
     reports_to_position = models.ForeignKey(
         "Position",

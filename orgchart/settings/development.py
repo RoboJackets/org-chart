@@ -1,3 +1,4 @@
+import json
 import os
 from .ci import *  # pylint: disable=wildcard-import,unused-wildcard-import
 
@@ -14,3 +15,6 @@ APIARY_TOKEN = os.environ["APIARY_TOKEN"]
 
 RAMP_CLIENT_ID = os.environ["RAMP_CLIENT_ID"]
 RAMP_CLIENT_SECRET = os.environ["RAMP_CLIENT_SECRET"]
+
+GOOGLE_SERVICE_ACCOUNT_CREDENTIALS = json.loads(os.environ["GOOGLE_SERVICE_ACCOUNT_CREDENTIALS"])
+GOOGLE_SUBJECT = os.environ["GOOGLE_SUBJECT"]

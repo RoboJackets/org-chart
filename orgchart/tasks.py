@@ -40,7 +40,7 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
     )
 
     if keycloak_user_search.status_code != 200:
-        raise Exception("Failed to search Keycloak for user: " + keycloak_user_search.text)
+        raise Exception("Failed to search Keycloak for Ramp user: " + keycloak_user_search.text)
 
     if len(keycloak_user_search.json()) == 0:
         raise Exception("Keycloak search returned no results for Ramp user " + ramp_user_id)
