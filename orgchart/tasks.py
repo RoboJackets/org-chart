@@ -43,7 +43,27 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
         raise Exception("Failed to search Keycloak for Ramp user: " + keycloak_user_search.text)
 
     if len(keycloak_user_search.json()) == 0:
-        raise Exception("Keycloak search returned no results for Ramp user " + ramp_user_id)
+        # try searching by googleWorkspaceAccount instead
+        keycloak_user_search = get(
+            url=settings.KEYCLOAK_SERVER + "/admin/realms/robojackets/users",
+            headers={
+                "Authorization": "Bearer " + get_keycloak_access_token(),
+                "Accept": "application/json",
+            },
+            params={
+                "q": "googleWorkspaceAccount:" + ramp_user["email"],
+            },
+            timeout=(5, 5),
+        )
+
+        if keycloak_user_search.status_code != 200:
+            raise Exception("Failed to search Keycloak for Ramp user: " + keycloak_user_search.text)
+
+        if len(keycloak_user_search.json()) == 0:
+            raise Exception("Keycloak search returned no results for Ramp user " + ramp_user_id)
+
+        if len(keycloak_user_search.json()) > 1:
+            raise Exception("Keycloak search returned multiple results for Ramp user " + ramp_user_id)
 
     if len(keycloak_user_search.json()) > 1:
         raise Exception("Keycloak search returned multiple results for Ramp user " + ramp_user_id)
