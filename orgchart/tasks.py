@@ -63,7 +63,9 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
             raise Exception("Keycloak search returned no results for Ramp user " + ramp_user_id)
 
         if len(keycloak_user_search.json()) > 1:
-            raise Exception("Keycloak search returned multiple results for Ramp user " + ramp_user_id)
+            raise Exception(
+                "Keycloak search returned multiple results for Ramp user " + ramp_user_id
+            )
 
     if len(keycloak_user_search.json()) > 1:
         raise Exception("Keycloak search returned multiple results for Ramp user " + ramp_user_id)
