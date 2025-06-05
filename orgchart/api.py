@@ -28,7 +28,7 @@ class ImportRampUser(APIView):
         except ValueError as e:
             raise BadRequest("ramp_user_id is not a valid UUID") from e
 
-        import_ramp_user.delay(str(user_id))  # type: ignore
+        import_ramp_user.delay(str(user_id))
 
         return Response(data={"status": "accepted"}, status=202)
 
@@ -50,6 +50,6 @@ class ImportGoogleWorkspaceUser(APIView):
         if not request.data["google_workspace_user_id"].isdigit():
             raise BadRequest("google_workspace_user_id is not numeric")
 
-        import_google_workspace_user.delay(request.data["google_workspace_user_id"])  # type: ignore
+        import_google_workspace_user.delay(request.data["google_workspace_user_id"])
 
         return Response(data={"status": "accepted"}, status=202)
