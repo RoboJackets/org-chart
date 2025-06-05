@@ -1,8 +1,10 @@
-from celery import shared_task
+from celery import shared_task, Task
 from django.conf import settings
+from googleapiclient.errors import HttpError  # type: ignore
 from requests import get
 
 from org.apiary import get_apiary_user
+from org.google import get_google_workspace_client
 from org.keycloak import get_keycloak_access_token
 from org.models import Person, Position
 from org.ramp import get_ramp_user, get_ramp_access_token
@@ -74,7 +76,9 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
 
     # create user if needed
     try:
-        this_person = Person.objects.get(username__iexact=keycloak_user["username"])
+        this_person = Person.objects.get(
+            username__iexact=keycloak_user["username"], ramp_user_id__isnull=True
+        )
 
         this_person.ramp_user_id = ramp_user_id
         this_person.save()
@@ -151,3 +155,80 @@ def import_ramp_user(  # pylint: disable=too-many-branches,too-many-statements
                 pass
 
         this_person.save()
+
+
+@shared_task(bind=True, retry_backoff=True, max_retries=5, retry_jitter=True, retry_backoff_max=60)
+def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> None:  # type: ignore
+    """
+    Import a Google Workspace user by ID
+    """
+    try:
+        workspace_user = (
+            get_google_workspace_client().get(userKey=google_workspace_user_id).execute()
+        )
+    except HttpError as e:
+        if e.status_code == 404:
+            raise self.retry(exc=e) from e
+
+        raise e
+
+    keycloak_token = get_keycloak_access_token()
+
+    try:
+        Person.objects.get(google_workspace_user_id__iexact=workspace_user["id"])
+    except Person.DoesNotExist as exc:
+        # determine if this workspace user is in keycloak
+        keycloak_user_search = get(
+            url=settings.KEYCLOAK_SERVER + "/admin/realms/robojackets/users",
+            headers={
+                "Authorization": "Bearer " + keycloak_token,
+                "Accept": "application/json",
+            },
+            params={
+                "q": "googleWorkspaceAccount:" + workspace_user["primaryEmail"],
+            },
+            timeout=(5, 5),
+        )
+
+        if keycloak_user_search.status_code != 200:
+            raise Exception(
+                "Failed to search Keycloak for Google Workspace user: " + keycloak_user_search.text
+            ) from exc
+
+        if len(keycloak_user_search.json()) > 1:
+            raise Exception(
+                "Keycloak search returned multiple results for Google Workspace user "
+                + workspace_user["primaryEmail"]
+            ) from exc
+
+        keycloak_user = keycloak_user_search.json()[0]
+
+        try:
+            local_user = Person.objects.get(
+                username__iexact=keycloak_user["username"], google_workspace_user_id__isnull=True
+            )
+
+            local_user.google_workspace_user_id = workspace_user["id"]
+            local_user.save()
+        except Person.DoesNotExist:
+            this_ramp_user_id = None
+
+            if (
+                "attributes" in keycloak_user
+                and "rampUserId" in keycloak_user["attributes"]
+                and len(keycloak_user["attributes"]["rampUserId"]) == 1
+            ):
+                this_ramp_user_id = keycloak_user["attributes"]["rampUserId"][0]
+
+            Person.objects.create_user(
+                username=keycloak_user["username"],
+                email=keycloak_user["email"],
+                password=None,
+                first_name=workspace_user["name"]["givenName"],
+                last_name=workspace_user["name"]["familyName"],
+                keycloak_user_id=keycloak_user["id"],
+                ramp_user_id=this_ramp_user_id,
+                is_active=keycloak_user["enabled"],
+                is_staff=settings.DEBUG,
+                is_superuser=settings.DEBUG,
+            )
