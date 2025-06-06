@@ -212,7 +212,7 @@ def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> N
             local_user.google_workspace_user_id = workspace_user["id"]
             local_user.save()
 
-            update_google_workspace_user.delay_on_commit(local_user.id)
+            update_google_workspace_user.delay_on_commit(local_user.id)  # type: ignore
         except Person.DoesNotExist:
             this_ramp_user_id = None
 
@@ -236,4 +236,4 @@ def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> N
                 is_superuser=settings.DEBUG,
             )
 
-            update_google_workspace_user.delay_on_commit(local_user.id)
+            update_google_workspace_user.delay_on_commit(local_user.id)  # type: ignore
