@@ -8,6 +8,7 @@ from org.google import get_google_workspace_client
 from org.keycloak import get_keycloak_access_token
 from org.models import Person, Position
 from org.ramp import get_ramp_user, get_ramp_access_token
+from org.tasks import update_google_workspace_user
 
 
 @shared_task
@@ -210,6 +211,8 @@ def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> N
 
             local_user.google_workspace_user_id = workspace_user["id"]
             local_user.save()
+
+            update_google_workspace_user.delay_on_commit(local_user.id)
         except Person.DoesNotExist:
             this_ramp_user_id = None
 
@@ -220,7 +223,7 @@ def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> N
             ):
                 this_ramp_user_id = keycloak_user["attributes"]["rampUserId"][0]
 
-            Person.objects.create_user(
+            local_user = Person.objects.create_user(
                 username=keycloak_user["username"],
                 email=keycloak_user["email"],
                 password=None,
@@ -232,3 +235,5 @@ def import_google_workspace_user(self: Task, google_workspace_user_id: str) -> N
                 is_staff=settings.DEBUG,
                 is_superuser=settings.DEBUG,
             )
+
+            update_google_workspace_user.delay_on_commit(local_user.id)
