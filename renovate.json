@@ -1,0 +1,37 @@
+{
+    "extends": [
+        "config:recommended"
+    ],
+    "prConcurrentLimit": 1,
+    "prHourlyLimit": 0,
+    "rebaseWhen": "behind-base-branch",
+    "automerge": true,
+    "platformAutomerge": true,
+    "lockFileMaintenance": {
+        "enabled": true,
+        "schedule": [
+            "before 4pm every weekday except before 9am every weekday"
+        ]
+    },
+    "rangeStrategy": "pin",
+    "timezone": "America/New_York",
+    "schedule": [
+        "before 4pm every weekday except before 9am every weekday"
+    ],
+    "packageRules": [
+        {
+            "matchDepNames": [
+                "python"
+            ],
+            "rangeStrategy": "replace"
+        },
+        {
+            "matchCategories": [
+                "docker"
+            ],
+            "major": {
+                "enabled": true
+            }
+        }
+    ]
+}
