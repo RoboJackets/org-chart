@@ -13,7 +13,7 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.core.cache import cache
-from hubspot import HubSpot
+from hubspot import HubSpot  # type: ignore
 from requests import get, patch
 
 from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
@@ -137,7 +137,14 @@ class PersonAdmin(UserAdmin):  # type: ignore
         ),
         (
             "Organization hierarchy",
-            {"fields": ("reports_to_position", "title", "member_of_apiary_team", "manual_hierarchy")},
+            {
+                "fields": (
+                    "reports_to_position",
+                    "title",
+                    "member_of_apiary_team",
+                    "manual_hierarchy",
+                )
+            },
         ),
         (
             "Permissions",
@@ -1259,7 +1266,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
             )
 
     @admin.action(permissions=["change"], description="Reconcile HubSpot users")
-    def reconcile_hubspot_users(  # pylint: disable=too-many-branches
+    def reconcile_hubspot_users(  # pylint: disable=too-many-branches,too-many-locals
         self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
     ) -> None:
         """
@@ -1267,9 +1274,13 @@ class PersonAdmin(UserAdmin):  # type: ignore
         """
 
         hubspot = HubSpot(access_token=settings.HUBSPOT_ACCESS_TOKEN)
-        hubspot_portal_id = str(hubspot.api_request({
-            "path": "/account-info/v3/details",
-        }).json()["portalId"])
+        hubspot_portal_id = str(
+            hubspot.api_request(
+                {
+                    "path": "/account-info/v3/details",
+                }
+            ).json()["portalId"]
+        )
         hubspot_users = hubspot.settings.users.users_api.get_page().results
 
         updated_hubspot_user_id_count = 0
@@ -1280,9 +1291,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
         for hubspot_user in hubspot_users:
             try:
-                local_user = Person.objects.get(
-                    hubspot_user_id__iexact=hubspot_user.id
-                )
+                local_user = Person.objects.get(hubspot_user_id__iexact=hubspot_user.id)
 
                 if not local_user.is_active:
                     self.message_user(
@@ -1290,10 +1299,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         mark_safe(
                             '<a href="https://app.hubspot.com/settings/'
                             + hubspot_portal_id
-                            + '/users/user/'  # noqa
+                            + "/users/user/"  # noqa
                             + hubspot_user.id
                             + '">'
-                            + local_user.__str__()
+                            + str(local_user)
                             + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
                             + reverse("admin:org_person_change", args=(local_user.id,))
                             + '">OrgChart</a>.'
@@ -1318,8 +1327,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
                 if keycloak_user_search.status_code != 200:
                     raise Exception(
-                        "Failed to search Keycloak for HubSpot user: "
-                        + keycloak_user_search.text
+                        "Failed to search Keycloak for HubSpot user: " + keycloak_user_search.text
                     ) from exc
 
                 if len(keycloak_user_search.json()) == 0:
@@ -1328,7 +1336,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         mark_safe(
                             '<a href="https://app.hubspot.com/settings/'
                             + hubspot_portal_id
-                            + '/users/user/'  # noqa
+                            + "/users/user/"  # noqa
                             + hubspot_user.id
                             + '">'
                             + hubspot_user.email
@@ -1361,10 +1369,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
                             mark_safe(
                                 '<a href="https://app.hubspot.com/settings/'
                                 + hubspot_portal_id
-                                + '/users/user/'  # noqa
+                                + "/users/user/"  # noqa
                                 + hubspot_user.id
                                 + '">'
-                                + local_user.__str__()
+                                + str(local_user)
                                 + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
                                 + reverse("admin:org_person_change", args=(local_user.id,))
                                 + '">OrgChart</a>.'
@@ -1404,10 +1412,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
                             mark_safe(
                                 '<a href="https://app.hubspot.com/settings/'
                                 + hubspot_portal_id
-                                + '/users/user/'  # noqa
+                                + "/users/user/"  # noqa
                                 + hubspot_user.id
                                 + '">'
-                                + local_user.__str__()
+                                + str(local_user)
                                 + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
                                 + reverse("admin:org_person_change", args=(local_user.id,))
                                 + '">OrgChart</a>.'

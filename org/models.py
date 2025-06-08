@@ -60,7 +60,9 @@ class Person(AbstractUser):
     google_workspace_user_id = models.CharField(
         null=True, blank=True, max_length=100, unique=True, verbose_name="Google Workspace user ID"
     )
-    hubspot_user_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="HubSpot user ID")
+    hubspot_user_id = models.IntegerField(
+        null=True, blank=True, unique=True, verbose_name="HubSpot user ID"
+    )
     slack_user_id = models.CharField(null=True, blank=True, max_length=9, unique=True)
     reports_to_position = models.ForeignKey(
         "Position",
