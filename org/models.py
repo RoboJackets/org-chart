@@ -60,6 +60,7 @@ class Person(AbstractUser):
     google_workspace_user_id = models.CharField(
         null=True, blank=True, max_length=100, unique=True, verbose_name="Google Workspace user ID"
     )
+    hubspot_user_id = models.IntegerField(null=True, blank=True, unique=True, verbose_name="HubSpot user ID")
     slack_user_id = models.CharField(null=True, blank=True, max_length=9, unique=True)
     reports_to_position = models.ForeignKey(
         "Position",
@@ -76,6 +77,13 @@ class Person(AbstractUser):
         choices=get_teams,
         verbose_name="Primary team",
         help_text="If this person is in a position, the primary team for their position will take precedence.",  # noqa
+    )
+    title = models.CharField(
+        max_length=100,
+        null=True,
+        blank=True,
+        verbose_name="Short title",
+        help_text="If this person has a one-off title or a title shared with multiple people, you can set it here instead of using a position. If this person is in a position, the position title will take precedence.",  # noqa
     )
     manual_hierarchy = models.BooleanField(
         default=False,

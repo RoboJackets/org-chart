@@ -917,6 +917,28 @@ files = [
 pyparsing = {version = ">=2.4.2,<3.0.0 || >3.0.0,<3.0.1 || >3.0.1,<3.0.2 || >3.0.2,<3.0.3 || >3.0.3,<4", markers = "python_version > \"3.0\""}
 
 [[package]]
+name = "hubspot-api-client"
+version = "12.0.0"
+description = "HubSpot API client"
+optional = false
+python-versions = ">=3.7"
+groups = ["main"]
+files = [
+    {file = "hubspot_api_client-12.0.0-py3-none-any.whl", hash = "sha256:5426627ff808fdf259d5b5e4791667a323a2a82d36a834e7e43ec8e8f021aa08"},
+    {file = "hubspot_api_client-12.0.0.tar.gz", hash = "sha256:ddfc60f3a80565dd5bf7fc7554d0d2dabad37926f547436158258772f1a04e69"},
+]
+
+[package.dependencies]
+certifi = ">=2023.1.1"
+python-dateutil = ">=2.8.2"
+requests = ">=2.31.0"
+six = ">=1.10,<2.0"
+urllib3 = ">=1.15,<3.0"
+
+[package.extras]
+dev = ["black", "pytest"]
+
+[[package]]
 name = "idna"
 version = "3.10"
 description = "Internationalized Domain Names in Applications (IDNA)"
@@ -1642,4 +1664,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "3adab833612a17402eec618f3cab8f1f1b248cabbc6c506c60014eaf51397b15"
+content-hash = "252632fa21acd0713cb0f6b05a188f5be438f4a895e1dbe3815867fd5584d712"

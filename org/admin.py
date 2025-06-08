@@ -13,6 +13,7 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import reverse
 from django.utils.safestring import mark_safe
 from django.core.cache import cache
+from hubspot import HubSpot
 from requests import get, patch
 
 from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
@@ -130,6 +131,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     "keycloak_user_id",
                     "ramp_user_id",
                     "google_workspace_user_id",
+                    "hubspot_user_id",
                 )
             },
         ),
@@ -201,6 +203,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
             "fetch_hierarchy_from_apiary",
             "reconcile_ramp_users",
             "reconcile_google_workspace_users",
+            "reconcile_hubspot_users",
         ):
             r = request.POST.copy()
             for p in Person.objects.all():
@@ -418,6 +421,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         "fetch_hierarchy_from_apiary",
         "reconcile_ramp_users",
         "reconcile_google_workspace_users",
+        "reconcile_hubspot_users",
     ]
 
     @admin.action(permissions=["add"], description="Fetch people from Keycloak")
@@ -1113,8 +1117,6 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     )
                     warnings += 1
 
-                print(workspace_user)
-
             except Person.DoesNotExist as exc:
                 # determine if this workspace user is in keycloak
                 keycloak_user_search = get(
@@ -1136,21 +1138,20 @@ class PersonAdmin(UserAdmin):  # type: ignore
                     ) from exc
 
                 if len(keycloak_user_search.json()) == 0:
-                    self.message_user(
-                        request,
-                        mark_safe(
-                            '<a href="https://www.google.com/a/robojackets.org/ServiceLogin?continue=https://admin.google.com/ac/search?query='  # noqa
-                            + workspace_user["primaryEmail"]
-                            + '&tab=USERS">'
-                            + workspace_user["name"]["fullName"]
-                            + "</a> has "
-                            + ("a suspended" if workspace_user["suspended"] else "an active")
-                            + " Google Workspace account, but does not have a corresponding account in Keycloak."  # noqa
-                        ),
-                        messages.WARNING,
-                    )
+                    if not workspace_user["suspended"]:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://www.google.com/a/robojackets.org/ServiceLogin?continue=https://admin.google.com/ac/search?query='  # noqa
+                                + workspace_user["primaryEmail"]
+                                + '&tab=USERS">'
+                                + workspace_user["name"]["fullName"]
+                                + "</a> has an active Google Workspace account, but does not have a corresponding account in Keycloak."  # noqa
+                            ),
+                            messages.WARNING,
+                        )
 
-                    warnings += 1
+                        warnings += 1
 
                     continue
 
@@ -1254,6 +1255,197 @@ class PersonAdmin(UserAdmin):  # type: ignore
             self.message_user(
                 request,
                 "All Google Workspace users match OrgChart.",
+                messages.SUCCESS,
+            )
+
+    @admin.action(permissions=["change"], description="Reconcile HubSpot users")
+    def reconcile_hubspot_users(  # pylint: disable=too-many-branches
+        self, request: HttpRequest, queryset: QuerySet[Person]  # pylint: disable=unused-argument
+    ) -> None:
+        """
+        Compare the list of HubSpot users with OrgChart and identify any discrepancies.
+        """
+
+        hubspot = HubSpot(access_token=settings.HUBSPOT_ACCESS_TOKEN)
+        hubspot_portal_id = str(hubspot.api_request({
+            "path": "/account-info/v3/details",
+        }).json()["portalId"])
+        hubspot_users = hubspot.settings.users.users_api.get_page().results
+
+        updated_hubspot_user_id_count = 0
+        added_new_person_count = 0
+        warnings = 0
+
+        keycloak_token = get_keycloak_access_token()
+
+        for hubspot_user in hubspot_users:
+            try:
+                local_user = Person.objects.get(
+                    hubspot_user_id__iexact=hubspot_user.id
+                )
+
+                if not local_user.is_active:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            '<a href="https://app.hubspot.com/settings/'
+                            + hubspot_portal_id
+                            + '/users/user/'  # noqa
+                            + hubspot_user.id
+                            + '">'
+                            + local_user.__str__()
+                            + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
+                            + reverse("admin:org_person_change", args=(local_user.id,))
+                            + '">OrgChart</a>.'
+                        ),
+                        messages.WARNING,
+                    )
+                    warnings += 1
+
+            except Person.DoesNotExist as exc:
+                # determine if this hubspot user is in keycloak
+                keycloak_user_search = get(
+                    url=settings.KEYCLOAK_SERVER + "/admin/realms/robojackets/users",
+                    headers={
+                        "Authorization": "Bearer " + keycloak_token,
+                        "Accept": "application/json",
+                    },
+                    params={
+                        "q": "googleWorkspaceAccount:" + hubspot_user.email,
+                    },
+                    timeout=(5, 5),
+                )
+
+                if keycloak_user_search.status_code != 200:
+                    raise Exception(
+                        "Failed to search Keycloak for HubSpot user: "
+                        + keycloak_user_search.text
+                    ) from exc
+
+                if len(keycloak_user_search.json()) == 0:
+                    self.message_user(
+                        request,
+                        mark_safe(
+                            '<a href="https://app.hubspot.com/settings/'
+                            + hubspot_portal_id
+                            + '/users/user/'  # noqa
+                            + hubspot_user.id
+                            + '">'
+                            + hubspot_user.email
+                            + "</a> has a HubSpot account, but does not have a corresponding account in Keycloak."  # noqa
+                        ),
+                        messages.WARNING,
+                    )
+
+                    warnings += 1
+
+                    continue
+
+                if len(keycloak_user_search.json()) > 1:
+                    raise Exception(
+                        "Keycloak search returned multiple results for HubSpot user "
+                        + hubspot_user.email
+                    ) from exc
+
+                keycloak_user = keycloak_user_search.json()[0]
+
+                try:
+                    local_user = Person.objects.get(username__iexact=keycloak_user["username"])
+
+                    local_user.hubspot_user_id = hubspot_user.id
+                    local_user.save()
+
+                    if not local_user.is_active:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.hubspot.com/settings/'
+                                + hubspot_portal_id
+                                + '/users/user/'  # noqa
+                                + hubspot_user.id
+                                + '">'
+                                + local_user.__str__()
+                                + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
+                                + reverse("admin:org_person_change", args=(local_user.id,))
+                                + '">OrgChart</a>.'
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+
+                    updated_hubspot_user_id_count += 1
+                except Person.DoesNotExist:
+                    this_ramp_user_id = None
+
+                    if (
+                        "attributes" in keycloak_user
+                        and "rampUserId" in keycloak_user["attributes"]
+                        and len(keycloak_user["attributes"]["rampUserId"]) == 1
+                    ):
+                        this_ramp_user_id = keycloak_user["attributes"]["rampUserId"][0]
+
+                    local_user = Person.objects.create_user(
+                        username=keycloak_user["username"],
+                        email=keycloak_user["email"],
+                        password=None,
+                        first_name=keycloak_user["firstName"],
+                        last_name=keycloak_user["lastName"],
+                        keycloak_user_id=keycloak_user["id"],
+                        ramp_user_id=this_ramp_user_id,
+                        hubspot_user_id=hubspot_user.id,
+                        is_active=keycloak_user["enabled"],
+                        is_staff=settings.DEBUG,
+                        is_superuser=settings.DEBUG,
+                    )
+
+                    if not local_user.is_active:
+                        self.message_user(
+                            request,
+                            mark_safe(
+                                '<a href="https://app.hubspot.com/settings/'
+                                + hubspot_portal_id
+                                + '/users/user/'  # noqa
+                                + hubspot_user.id
+                                + '">'
+                                + local_user.__str__()
+                                + '</a> has a HubSpot account, but they are not active in <a href="'  # noqa
+                                + reverse("admin:org_person_change", args=(local_user.id,))
+                                + '">OrgChart</a>.'
+                            ),
+                            messages.WARNING,
+                        )
+                        warnings += 1
+
+                    added_new_person_count += 1
+
+        if updated_hubspot_user_id_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Updated HubSpot user ID for %d person.",
+                    "Updated HubSpot user IDs for %d people.",
+                    updated_hubspot_user_id_count,
+                )
+                % updated_hubspot_user_id_count,
+                messages.SUCCESS,
+            )
+
+        if added_new_person_count > 0:
+            self.message_user(
+                request,
+                ngettext(
+                    "Added %d person.",
+                    "Added %d people.",
+                    added_new_person_count,
+                )
+                % added_new_person_count,
+                messages.SUCCESS,
+            )
+
+        if warnings == 0:
+            self.message_user(
+                request,
+                "All HubSpot users match OrgChart.",
                 messages.SUCCESS,
             )
 
