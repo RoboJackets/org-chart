@@ -83,7 +83,7 @@ class Person(AbstractUser):
         null=True,
         blank=True,
         verbose_name="Short title",
-        help_text="If this person has a one-off title or a title shared with multiple people, you can set it here instead of using a position. If this person is in a position, the position title will take precedence.",  # noqa
+        help_text="If this person has a one-off title or a title shared with multiple people, you can set it here instead of using a position. If this person is in a position, the position title will take precedence. Do not include their team name in this field.",  # noqa
     )
     manual_hierarchy = models.BooleanField(
         default=False,

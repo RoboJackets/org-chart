@@ -137,7 +137,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
         ),
         (
             "Organization hierarchy",
-            {"fields": ("reports_to_position", "member_of_apiary_team", "manual_hierarchy")},
+            {"fields": ("reports_to_position", "title", "member_of_apiary_team", "manual_hierarchy")},
         ),
         (
             "Permissions",

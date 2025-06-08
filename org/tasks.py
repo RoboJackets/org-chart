@@ -133,7 +133,22 @@ def update_google_workspace_user(  # pylint: disable=too-many-branches,too-many-
         else:
             google_workspace_user_update["relations"] = []
     else:
-        if local_user.member_of_apiary_team is not None:
+        if local_user.title is not None and local_user.member_of_apiary_team is not None:
+            google_workspace_user_update["organizations"] = [
+                {
+                    "title": local_user.title,
+                    "department": get_teams()[local_user.member_of_apiary_team],
+                    "primary": True,  # type: ignore
+                },
+            ]
+        elif local_user.title is not None:
+            google_workspace_user_update["organizations"] = [
+                {
+                    "title": local_user.title,
+                    "primary": True,  # type: ignore
+                },
+            ]
+        elif local_user.member_of_apiary_team is not None:
             google_workspace_user_update["organizations"] = [
                 {
                     "department": get_teams()[local_user.member_of_apiary_team],
