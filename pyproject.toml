@@ -6,7 +6,7 @@ authors = [
     {name = "Kristaps Berzinch",email = "kristapsberzinch@gmail.com"}
 ]
 readme = "README.md"
-requires-python = "^3.12"
+requires-python = "^3.10"
 dependencies = [
     "django (==5.2.3)",
     "mozilla-django-oidc (==4.0.1)",
