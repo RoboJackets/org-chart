@@ -14,7 +14,7 @@ dependencies = [
     "mysqlclient (==2.2.7)",
     "hiredis (==3.2.1)",
     "django-redis (==5.4.0)",
-    "sentry-sdk[django] (==2.30.0)",
+    "sentry-sdk[django] (==2.32.0)",
     "djangorestframework (==3.16.0)",
     "celery[redis] (==5.5.3)",
     "google-api-python-client (==2.175.0)",
