@@ -34,7 +34,7 @@ black = "25.9.0"
 flake8 = "7.3.0"
 pylint = "3.3.8"
 mypy = "1.18.2"
-django-stubs = {extras = ["compatible-mypy"], version = "5.2.5"}
+django-stubs = {extras = ["compatible-mypy"], version = "5.2.6"}
 types-requests = "^2.32.0.20250328"
 celery-types = "0.23.0"
 djangorestframework-stubs = {extras = ["compatible-mypy"], version = "3.16.4"}
