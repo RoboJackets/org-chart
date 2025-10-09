@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.19
 
-FROM python:3.13-slim-bullseye
+FROM python:3.14-slim-trixie
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="${PATH}:/root/.local/bin" \
@@ -12,7 +12,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN set -eux && \
     apt-get update && \
     apt-get upgrade -qq --assume-yes && \
-    apt-get install -qq --assume-yes build-essential python-dev libpcre3 libpcre3-dev zopfli python3-dev default-libmysqlclient-dev pkg-config && \
+    apt-get install -qq --assume-yes build-essential zopfli python3-dev default-libmysqlclient-dev pkg-config && \
     python3 -m pip install --upgrade pip && \
     python3 -m pip install poetry && \
     useradd --home-dir /app/ --create-home --shell /bin/bash uwsgi
