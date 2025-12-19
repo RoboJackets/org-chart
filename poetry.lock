@@ -1051,24 +1051,6 @@ colors = ["colorama"]
 plugins = ["setuptools"]
 
 [[package]]
-name = "josepy"
-version = "2.2.0"
-description = "JOSE protocol implementation in Python"
-optional = false
-python-versions = ">=3.9.2"
-groups = ["main"]
-files = [
-    {file = "josepy-2.2.0-py3-none-any.whl", hash = "sha256:63e9dd116d4078778c25ca88f880cc5d95f1cab0099bebe3a34c2e299f65d10b"},
-    {file = "josepy-2.2.0.tar.gz", hash = "sha256:74c033151337c854f83efe5305a291686cef723b4b970c43cfe7270cf4a677a9"},
-]
-
-[package.dependencies]
-cryptography = ">=1.5"
-
-[package.extras]
-docs = ["sphinx (>=4.3.0)", "sphinx-rtd-theme (>=1.0)"]
-
-[[package]]
 name = "kombu"
 version = "5.6.1"
 description = "Messaging library for Python."
@@ -1206,21 +1188,29 @@ files = [
 
 [[package]]
 name = "mozilla-django-oidc"
-version = "4.0.1"
+version = "5.0.1"
 description = "A lightweight authentication and access management library for integration with OpenID Connect enabled authentication services."
 optional = false
-python-versions = "*"
+python-versions = ">=3.10"
 groups = ["main"]
 files = [
-    {file = "mozilla-django-oidc-4.0.1.tar.gz", hash = "sha256:4ff8c64069e3e05c539cecf9345e73225a99641a25e13b7a5f933ec897b58918"},
-    {file = "mozilla_django_oidc-4.0.1-py2.py3-none-any.whl", hash = "sha256:04ef58759be69f22cdc402d082480aaebf193466cad385dc9e4f8df2a0b187ca"},
+    {file = "mozilla_django_oidc-5.0.1-py3-none-any.whl", hash = "sha256:4e0499d05be9895b658ba8d95c421cbee64819a3b707fb1beff18834b1b55017"},
+    {file = "mozilla_django_oidc-5.0.1.tar.gz", hash = "sha256:ed9eaba7b0023e984f4859f01504e5006fad6ff132c9741a01318cc045bf2c7f"},
 ]
 
 [package.dependencies]
 cryptography = "*"
-Django = ">=3.2"
-josepy = "*"
+Django = ">=4.2"
+pyjwt = "*"
 requests = "*"
+
+[package.extras]
+build = ["build"]
+dev = ["mozilla-django-oidc[build,docs,drf,lint,test]"]
+docs = ["readthedocs-sphinx-search", "sphinx", "sphinx_rtd_theme"]
+drf = ["djangorestframework (>=3.14)"]
+lint = ["flake8"]
+test = ["bumpversion", "coverage", "djangorestframework (>=3.14)", "importlib-metadata ; python_version < \"3.10\"", "ipdb", "ipython", "pre-commit", "responses", "splinter[selenium] (>=0.21.0)", "tox"]
 
 [[package]]
 name = "mypy"
@@ -1470,6 +1460,24 @@ files = [
     {file = "pyflakes-3.4.0-py2.py3-none-any.whl", hash = "sha256:f742a7dbd0d9cb9ea41e9a24a918996e8170c799fa528688d40dd582c8265f4f"},
     {file = "pyflakes-3.4.0.tar.gz", hash = "sha256:b24f96fafb7d2ab0ec5075b7350b3d2d2218eab42003821c06344973d3ea2f58"},
 ]
+
+[[package]]
+name = "pyjwt"
+version = "2.10.1"
+description = "JSON Web Token implementation in Python"
+optional = false
+python-versions = ">=3.9"
+groups = ["main"]
+files = [
+    {file = "PyJWT-2.10.1-py3-none-any.whl", hash = "sha256:dcdd193e30abefd5debf142f9adfcdd2b58004e644f25406ffaebd50bd98dacb"},
+    {file = "pyjwt-2.10.1.tar.gz", hash = "sha256:3cc5772eb20009233caf06e9d8a0577824723b44e6648ee0a2aedb6cf9381953"},
+]
+
+[package.extras]
+crypto = ["cryptography (>=3.4.0)"]
+dev = ["coverage[toml] (==5.0.4)", "cryptography (>=3.4.0)", "pre-commit", "pytest (>=6.0.0,<7.0.0)", "sphinx", "sphinx-rtd-theme", "zope.interface"]
+docs = ["sphinx", "sphinx-rtd-theme", "zope.interface"]
+tests = ["coverage[toml] (==5.0.4)", "pytest (>=6.0.0,<7.0.0)"]
 
 [[package]]
 name = "pylint"
@@ -1838,4 +1846,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "367b007f311b307e109fb7a027c53e8216b75f9ca1d124f913609df86f94bc7a"
+content-hash = "432d4a70925d07bf9bf2022c15053e4cc2ed3bb69c6a91eecef8b7b92852b5ac"
