@@ -16,7 +16,7 @@ dependencies = [
     "django-redis (==6.0.0)",
     "sentry-sdk[django] (==2.48.0)",
     "djangorestframework (==3.16.1)",
-    "celery[redis] (==5.6.0)",
+    "celery[redis] (==5.6.1)",
     "google-api-python-client (==2.187.0)",
     "hubspot-api-client (==12.0.0)",
 ]
