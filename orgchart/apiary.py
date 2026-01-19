@@ -63,7 +63,7 @@ def find_or_create_local_user_for_apiary_user_id(apiary_user_id: int) -> Tuple[P
             and "id" in apiary_user["manager"]
             and apiary_user["manager"]["id"] is not None
         ):
-            (this_users_manager, users_created) = find_or_create_local_user_for_apiary_user_id(
+            this_users_manager, users_created = find_or_create_local_user_for_apiary_user_id(
                 apiary_user["manager"]["id"]
             )
 
