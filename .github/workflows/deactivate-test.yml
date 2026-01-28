@@ -2,7 +2,7 @@ name: Deactivate Test
 
 on:
   schedule:
-    - cron:  '0 20 * * *'
+    - cron:  '0 21 * * *'
 
 jobs:
   deactivate-test:
@@ -31,3 +31,10 @@ jobs:
         continue-on-error: true
         run: |
           nomad stop org-chart-test
+
+      - name: Stop production
+        env:
+          NOMAD_ADDR: https://nomad.bcdc.robojackets.net
+        continue-on-error: true
+        run: |
+          nomad stop org-chart-production
