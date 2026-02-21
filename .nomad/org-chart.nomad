@@ -61,6 +61,8 @@ job "org-chart" {
 
   type = "service"
 
+  priority = 10
+
   group "org-chart" {
     network {
       port "http" {}
