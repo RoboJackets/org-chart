@@ -1,4 +1,4 @@
-# syntax = docker/dockerfile:1.21
+# syntax = docker/dockerfile:1.22
 
 FROM python:3.14-slim-trixie
 
