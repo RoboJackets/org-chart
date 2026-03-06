@@ -32,6 +32,7 @@ jobs:
     permissions:
       id-token: write
       contents: read
+      packages: read
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -57,4 +58,4 @@ jobs:
           NOMAD_ADDR: https://nomad.bcdc.robojackets.net
         working-directory: ./.nomad/
         run: |
-          nomad run -var image=registry.bcdc.robojackets.net/org-chart@${{ inputs.image-digest }} -var hostname=${{ inputs.environment == 'test' && 'org-chart-test.bcdc.robojackets.net' || (inputs.environment == 'production' && 'org-chart.robojackets.org' || 'https://robojackets.org') }} org-chart.nomad
+          nomad run -var image=ghcr.io/robojackets/org-chart@${{ inputs.image-digest }} -var registry_username=${{ github.actor }} -var registry_password=${{ secrets.GITHUB_TOKEN }} -var hostname=${{ inputs.environment == 'test' && 'org-chart-test.bcdc.robojackets.net' || (inputs.environment == 'production' && 'org-chart.robojackets.org' || 'https://robojackets.org') }} org-chart.nomad
