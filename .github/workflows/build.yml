@@ -88,20 +88,20 @@ jobs:
       environment: test
 
   deploy-production:
-   name: Deploy
-   needs: [lint, docker, deploy-test]
-   uses: ./.github/workflows/deploy.yml
-   if: ${{ github.ref == 'refs/heads/main' }}
-   concurrency:
-     group: deploy-production
-     cancel-in-progress: true
-   permissions:
-     id-token: write
-     contents: read
+    name: Deploy
+    needs: [lint, docker, deploy-test]
+    uses: ./.github/workflows/deploy.yml
+    if: ${{ github.ref == 'refs/heads/main' }}
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: true
+    permissions:
+      id-token: write
+      contents: read
       packages: read
-   with:
-     image-digest: ${{ needs.docker.outputs.image-digest }}
-     environment: production
+    with:
+      image-digest: ${{ needs.docker.outputs.image-digest }}
+      environment: production
 
   prune-stale-images:
     name: Prune stale images
