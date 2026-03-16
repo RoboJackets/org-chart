@@ -12,7 +12,7 @@ dependencies = [
     "mozilla-django-oidc (==5.0.2)",
     "uwsgi (==2.0.31)",
     "mysqlclient (==2.2.8)",
-    "hiredis (==3.3.0)",
+    "hiredis (==3.3.1)",
     "django-redis (==6.0.0)",
     "sentry-sdk[django] (==2.54.0)",
     "djangorestframework (==3.16.1)",
