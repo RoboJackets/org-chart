@@ -37,7 +37,7 @@ mypy = "1.19.1"
 django-stubs = {extras = ["compatible-mypy"], version = "6.0.2"}
 types-requests = "^2.32.0.20250328"
 celery-types = "0.26.0"
-djangorestframework-stubs = {extras = ["compatible-mypy"], version = "3.16.8"}
+djangorestframework-stubs = {extras = ["compatible-mypy"], version = "3.16.9"}
 
 [tool.black]
 line-length = 100
