@@ -17,7 +17,7 @@ from hubspot import HubSpot  # type: ignore
 from requests import get, patch
 
 from orgchart.apiary import find_or_create_local_user_for_apiary_user_id
-from .apiary import get_teams, get_apiary_user
+from .apiary import get_apiary_access_token, get_teams, get_apiary_user
 from .google import get_google_workspace_users
 from .keycloak import get_keycloak_access_token
 from .models import Person, Position
@@ -1525,7 +1525,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
             get_team_response = get(
                 url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
                 headers={
-                    "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                    "Authorization": "Bearer " + get_apiary_access_token(),
                     "Accept": "application/json",
                 },
                 timeout=(5, 5),
@@ -1581,7 +1581,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                 update_team_response = patch(
                     url=settings.APIARY_SERVER + "/api/v1/teams/" + str(apiary_team_id),
                     headers={
-                        "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                        "Authorization": "Bearer " + get_apiary_access_token(),
                         "Accept": "application/json",
                     },
                     timeout=(5, 5),
@@ -1985,7 +1985,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
         teams_response = get(
             url=settings.APIARY_SERVER + "/api/v1/teams",
             headers={
-                "Authorization": "Bearer " + settings.APIARY_TOKEN,
+                "Authorization": "Bearer " + get_apiary_access_token(),
                 "Accept": "application/json",
             },
             params={
