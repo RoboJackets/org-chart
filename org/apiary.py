@@ -2,7 +2,29 @@ from typing import Dict, Any
 
 from django.conf import settings
 from django.core.cache import cache
-from requests import get
+from requests import get, post
+
+
+def get_apiary_access_token() -> str:
+    """
+    Get an access token for Apiary via OAuth 2.0 client credentials.
+    """
+    apiary_access_token_response = post(
+        url=settings.APIARY_SERVER + "/oauth/token",
+        data={
+            "grant_type": "client_credentials",
+            "client_id": settings.APIARY_CLIENT_ID,
+            "client_secret": settings.APIARY_CLIENT_SECRET,
+        },
+        timeout=(5, 5),
+    )
+
+    if apiary_access_token_response.status_code != 200:
+        raise Exception(
+            "Failed to get access token from Apiary: " + apiary_access_token_response.text
+        )
+
+    return apiary_access_token_response.json()["access_token"]  # type: ignore
 
 
 def get_teams() -> Dict[int, str]:
@@ -16,7 +38,7 @@ def get_teams() -> Dict[int, str]:
     teams_response = get(
         url=settings.APIARY_SERVER + "/api/v1/teams",
         headers={
-            "Authorization": "Bearer " + settings.APIARY_TOKEN,
+            "Authorization": "Bearer " + get_apiary_access_token(),
             "Accept": "application/json",
         },
         timeout=(5, 5),
@@ -46,7 +68,7 @@ def get_apiary_user(identifier: str) -> Any | None:
     user_response = get(
         url=settings.APIARY_SERVER + "/api/v1/users/" + identifier,
         headers={
-            "Authorization": "Bearer " + settings.APIARY_TOKEN,
+            "Authorization": "Bearer " + get_apiary_access_token(),
             "Accept": "application/json",
         },
         timeout=(5, 5),
