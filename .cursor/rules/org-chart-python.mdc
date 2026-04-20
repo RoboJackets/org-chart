@@ -1,0 +1,16 @@
+---
+alwaysApply: true
+---
+This repository is a Python Django application. It uses Poetry for dependency management.
+
+Any Python commands must be prefixed with "poetry run" so that they execute within the virtual environment created by Poetry.
+
+All code should pass linters:
+
+poetry run black .
+
+poetry run flake8 .
+
+poetry run pylint .
+
+poetry run mypy --strict --scripts-are-modules .
