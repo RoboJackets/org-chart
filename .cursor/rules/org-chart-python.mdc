@@ -13,4 +13,4 @@ poetry run flake8 .
 
 poetry run pylint .
 
-poetry run mypy --strict --scripts-are-modules .
+poetry run mypy --strict .
