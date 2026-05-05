@@ -593,14 +593,14 @@ profile = ["gprof2dot (>=2022.7.29)"]
 
 [[package]]
 name = "django"
-version = "6.0.4"
+version = "6.0.5"
 description = "A high-level Python web framework that encourages rapid development and clean, pragmatic design."
 optional = false
 python-versions = ">=3.12"
 groups = ["main", "dev"]
 files = [
-    {file = "django-6.0.4-py3-none-any.whl", hash = "sha256:14359c809fc16e8f81fd2b59d7d348e4d2d799da6840b10522b6edf7b8afc1da"},
-    {file = "django-6.0.4.tar.gz", hash = "sha256:8cfa2572b3f2768b2e84983cf3c4811877a01edb64e817986ec5d60751c113ac"},
+    {file = "django-6.0.5-py3-none-any.whl", hash = "sha256:9d58a7cb49244e74c8e161d5e403a46d6209f1009ba40f5a66d6aa0d0786a8f0"},
+    {file = "django-6.0.5.tar.gz", hash = "sha256:bc6d6872e98a2864c836e42edd644b362db311147dd5aa8d5b82ba7a032f5269"},
 ]
 
 [package.dependencies]
@@ -1861,4 +1861,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "7d5fe9d986b553830fc69a360cdc779a04f1e583e2c71eeb0447dd53ea24a34b"
+content-hash = "1363f0fca277ac601c2a548f6a417c6ddf19e3e7660cfefce5d5ab239a436c05"
