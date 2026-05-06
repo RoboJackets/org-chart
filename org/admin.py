@@ -1790,10 +1790,11 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             + reverse("admin:org_position_change", args=(position.id,))
                             + '">'
                             + str(position)
-                            + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp if needed."  # noqa
+                            + "</a> does not have a reporting position, however managers cannot be cleared via API. Update this person manually in Ramp, then try again."  # noqa
                         ),
-                        messages.WARNING,
+                        messages.ERROR,
                     )
+                    return
 
                 if position.reports_to_position is not None:
                     if position.reports_to_position.person is None:
