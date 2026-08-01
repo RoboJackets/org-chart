@@ -20,11 +20,15 @@ class ImportRampUser(APIView):
         """
         Import a Ramp user by ID
         """
-        if "ramp_user_id" not in request.data:
+        data = request.data
+        if not isinstance(data, dict):
+            raise BadRequest("Expected a JSON object")
+
+        if "ramp_user_id" not in data:
             raise BadRequest("ramp_user_id is required")
 
         try:
-            user_id = uuid.UUID(request.data["ramp_user_id"])
+            user_id = uuid.UUID(data["ramp_user_id"])
         except ValueError as e:
             raise BadRequest("ramp_user_id is not a valid UUID") from e
 
@@ -44,12 +48,16 @@ class ImportGoogleWorkspaceUser(APIView):
         """
         Import a Google Workspace user by ID
         """
-        if "google_workspace_user_id" not in request.data:
+        data = request.data
+        if not isinstance(data, dict):
+            raise BadRequest("Expected a JSON object")
+
+        if "google_workspace_user_id" not in data:
             raise BadRequest("google_workspace_user_id is required")
 
-        if not request.data["google_workspace_user_id"].isdigit():
+        if not data["google_workspace_user_id"].isdigit():
             raise BadRequest("google_workspace_user_id is not numeric")
 
-        import_google_workspace_user.delay(request.data["google_workspace_user_id"])
+        import_google_workspace_user.delay(data["google_workspace_user_id"])
 
         return Response(data={"status": "accepted"}, status=202)
