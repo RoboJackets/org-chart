@@ -688,19 +688,19 @@ django = ">=5.2"
 
 [[package]]
 name = "djangorestframework-stubs"
-version = "3.17.1"
+version = "3.18.0"
 description = "PEP-484 stubs for django-rest-framework"
 optional = false
 python-versions = ">=3.10"
 groups = ["dev"]
 files = [
-    {file = "djangorestframework_stubs-3.17.1-py3-none-any.whl", hash = "sha256:40f1f22ec1965d1caff17c66794b87799eb8f42e0628ea46b501dcd565d8a803"},
-    {file = "djangorestframework_stubs-3.17.1.tar.gz", hash = "sha256:5b67655090e2976b778bad572840b732a87ab2911402530d0dca2fbf72f891c5"},
+    {file = "djangorestframework_stubs-3.18.0-py3-none-any.whl", hash = "sha256:dd04de8100689851e13843eebdc03a84d336f34aab6d30c726bca0f2f11aaf6b"},
+    {file = "djangorestframework_stubs-3.18.0.tar.gz", hash = "sha256:072adaf1a6f507e2ccca2e4ba5611a2259d6c9d171eb6256c103acecdd33a40d"},
 ]
 
 [package.dependencies]
 django-stubs = [
-    {version = ">=6.0.7"},
+    {version = ">=6.0.9"},
     {version = "*", extras = ["compatible-mypy"], optional = true, markers = "extra == \"compatible-mypy\""},
 ]
 mypy = {version = ">=1.13,<2.4", optional = true, markers = "extra == \"compatible-mypy\""}
@@ -1868,4 +1868,4 @@ files = [
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.12"
-content-hash = "cc461e1fc107c9a0d64f3c399521579a276a9e0b3eb2124eb1b9dfa3d03a4c34"
+content-hash = "4af6235f4390f10cc7bff97432836e8ed083ec538ef6e940b3e1aee93a666b5b"
