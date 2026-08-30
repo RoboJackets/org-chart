@@ -9,6 +9,11 @@ def get_apiary_access_token() -> str:
     """
     Get an access token for Apiary via OAuth 2.0 client credentials.
     """
+    cached_token = cache.get("apiary_token")
+
+    if cached_token is not None:
+        return cached_token  # type: ignore
+
     apiary_access_token_response = post(
         url=settings.APIARY_SERVER + "/oauth/token",
         data={
@@ -24,7 +29,11 @@ def get_apiary_access_token() -> str:
             "Failed to get access token from Apiary: " + apiary_access_token_response.text
         )
 
-    return apiary_access_token_response.json()["access_token"]  # type: ignore
+    token = apiary_access_token_response.json()["access_token"]
+
+    cache.set("apiary_token", token, timeout=apiary_access_token_response.json()["expires_in"] - 5)
+
+    return token  # type: ignore
 
 
 def get_teams() -> Dict[int, str]:
