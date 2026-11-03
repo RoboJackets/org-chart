@@ -767,22 +767,6 @@ class PersonAdmin(UserAdmin):  # type: ignore
 
             if local_user.is_active:
                 if ramp_user["status"] != "USER_ACTIVE":
-                    self.message_user(
-                        request,
-                        mark_safe(
-                            '<a href="https://app.ramp.com/people/all/'
-                            + ramp_user["id"]
-                            + '">'
-                            + ramp_user["first_name"]
-                            + " "
-                            + ramp_user["last_name"]
-                            + "</a> has a Ramp account, but the status is "
-                            + ramp_user["status"]
-                            + "."
-                        ),
-                        messages.WARNING,
-                    )
-                    warnings += 1
                     continue
             elif ramp_user["status"] == "USER_ACTIVE":
                 self.message_user(
