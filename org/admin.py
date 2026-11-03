@@ -787,7 +787,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
                 warnings += 1
                 continue
 
-            if local_user.is_active:
+            if ramp_user["status"] == "USER_ACTIVE":
                 if hasattr(local_user, "position"):
                     this_position = local_user.position
 
