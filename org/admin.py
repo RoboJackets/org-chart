@@ -808,8 +808,8 @@ class PersonAdmin(UserAdmin):  # type: ignore
                                 + ramp_user["first_name"]
                                 + " "
                                 + ramp_user["last_name"]
-                                + "</a> should not have a manager in Ramp, but currently reports to "
-                                + '<a href="https://app.ramp.com/people/all/'
+                                + "</a> should not have a manager in Ramp, but currently reports "
+                                + 'to <a href="https://app.ramp.com/people/all/'
                                 + ramp_user["manager_id"]
                                 + '">'
                                 + current_manager_in_ramp["first_name"]
