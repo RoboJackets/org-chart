@@ -660,7 +660,7 @@ class PersonAdmin(UserAdmin):  # type: ignore
             if person.apiary_user_id is None:
                 person.apiary_user_id = apiary_user["id"]
                 updated_apiary_user_id_count += 1
-            elif person.apiary_user_id != apiary_user["id"]:
+            elif person.apiary_user_id != int(apiary_user["id"]):
                 self.message_user(
                     request,
                     mark_safe(
@@ -1750,7 +1750,7 @@ class PositionAdmin(admin.ModelAdmin):  # type: ignore
                             ),
                             messages.SUCCESS,
                         )
-                    elif person.apiary_user_id != apiary_user["id"]:
+                    elif person.apiary_user_id != int(apiary_user["id"]):
                         self.message_user(
                             request,
                             mark_safe(
