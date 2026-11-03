@@ -822,7 +822,10 @@ class PersonAdmin(UserAdmin):  # type: ignore
                         warnings += 1
                         continue
 
-                    if this_position.reports_to_position is None and ramp_user["manager_id"] is None:
+                    if (
+                        this_position.reports_to_position is None
+                        and ramp_user["manager_id"] is None
+                    ):
                         # user matches across Ramp and OrgChart
                         continue
 
