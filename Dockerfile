@@ -1,6 +1,6 @@
 # syntax = docker/dockerfile:1.27
 
-FROM python:3.14-slim-trixie
+FROM python:3.15-slim-trixie
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PATH="${PATH}:/root/.local/bin" \
